@@ -11,12 +11,33 @@ export const useData = () => {
 
 // 3. Uygulamayı sarmalayacak olan ve veriyi "sağlayan" Provider bileşeni
 export const DataProvider = ({ children }) => {
-  // Uygulama genelinde paylaşılacak olan state'ler
+  // ...
   const [sources, setSources] = useState([
-    // Başlangıç için sahte bir SAP bağlantı verisi ekleyelim.
-    // Bu, "Sources" ekranını yapana kadar BAPI pop-up'ının çalışmasını sağlar.
-    { id: 'sap_conn_1', type: 'sap', name: 'SAP ERP Production', host: '192.168.1.100', client: '800' },
-    { id: 'sap_conn_2', type: 'sap', name: 'SAP Test System', host: '10.0.0.5', client: '300' },
+    // --- 1. BAĞLANTI İÇİN TANIMLAMALAR ---
+    { 
+      id: 'sap_conn_1', 
+      type: 'sap', 
+      name: 'SAP ERP Production', 
+      // BU BAĞLANTIYA ÖZEL GÖSTERİLECEK ALANLAR
+      fields: [
+        { name: 'host', label: 'Host', type: 'text', defaultValue: '192.168.1.100', disabled: true },
+        { name: 'client', label: 'Client', type: 'text', defaultValue: '800', disabled: true },
+        { name: 'functionName', label: 'BAPI Function Name', type: 'text', placeholder: 'Örn: BAPI_SALESORDER_CREATE' }
+      ]
+    },
+    // --- 2. BAĞLANTI İÇİN TANIMLAMALAR ---
+    { 
+      id: 'sap_conn_2', 
+      type: 'sap', 
+      name: 'SAP Test System', 
+      // BU BAĞLANTIYA ÖZEL, BİRAZ DAHA FARKLI ALANLAR
+      fields: [
+        { name: 'host', label: 'Host', type: 'text', defaultValue: '10.0.0.5', disabled: true },
+        { name: 'client', label: 'Client', type: 'text', defaultValue: '300', disabled: true },
+        { name: 'functionName', label: 'Function Name', type: 'text', placeholder: 'Örn: BAPI_USER_GET_DETAIL' },
+        { name: 'username', label: 'Test User (Optional)', type: 'text', placeholder: 'TESTUSER' }
+      ]
+    },
   ]);
   
   const [destinations, setDestinations] = useState([]);

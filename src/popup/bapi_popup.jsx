@@ -1,84 +1,183 @@
-import { useData } from '../context/DataContext.jsx';
-import { Box, Typography, TextField, Select, MenuItem, FormControl, InputLabel, Grid } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import {
+  Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField,
+  FormControl, InputLabel, Select, MenuItem, Box, Typography, Divider,
+  IconButton, CircularProgress, Alert
+} from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 
-const BapiPopup = ({ formData, setFormData }) => {
-  // DataContext'ten mevcut SAP bağlantılarını alıyoruz
-  const { sources } = useData();
-  const sapSources = sources.filter(s => s.type === 'sap');
+// --- VERİTABANI SİMÜLASYONU ---
+// Bu sahte veri, backend'iniz hazır olana kadar arayüzü test etmenizi sağlar.
+// Backend'den gelecek olan veri bu yapıda olmalıdır.
+const MOCK_SOURCES = [
+  { 
+    id: 'sap_conn_1', 
+    name: 'SAP Üretim Sunucusu (PROD)', 
+    fields: [
+      { name: 'host', label: 'Host', type: 'text', defaultValue: '192.168.1.100', disabled: true },
+      { name: 'client', label: 'Client', type: 'text', defaultValue: '800', disabled: true },
+      { name: 'functionName', label: 'BAPI Function Name', type: 'text', placeholder: 'Örn: BAPI_SALESORDER_CREATE' }
+    ]
+  },
+  { 
+    id: 'sap_conn_2', 
+    name: 'SAP Test Sunucusu (TEST)', 
+    fields: [
+      { name: 'host', label: 'Host', type: 'text', defaultValue: '10.0.0.5', disabled: true },
+      { name: 'client', label: 'Client', type: 'text', defaultValue: '300', disabled: true },
+      { name: 'functionName', label: 'Function Name', type: 'text', placeholder: 'Örn: BAPI_USER_GET_DETAIL' },
+      { name: 'username', label: 'Test Kullanıcısı (Opsiyonel)', type: 'text', placeholder: 'TESTUSER' }
+    ]
+  }
+];
+// ---------------------------------
+
+
+const BapiPopup = ({ open, onClose, onSave, initialData = {} }) => {
   
-  // Dropdown'dan seçilen bağlantının tüm detaylarını buluyoruz
-  const selectedConnection = sapSources.find(s => s.id === formData.connectionId);
+  // === STATE'LER ===
+  const [formData, setFormData] = useState(initialData);
+  const [sapConnections, setSapConnections] = useState([]);
+  const [configFields, setConfigFields] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  // Formdaki herhangi bir alan değiştiğinde bu fonksiyon çalışır
+  // === EFFECT'LER ===
+
+  // Component açıldığında veya initialData değiştiğinde formu doldurur
+  useEffect(() => {
+    setFormData(initialData);
+  }, [initialData, open]);
+
+  // SAP bağlantı listesini yükler (Şu an sahte veriden, ileride API'den)
+  useEffect(() => {
+    // API çağrısını simüle etmek için küçük bir gecikme ekleyelim
+    setIsLoading(true);
+    setTimeout(() => {
+      setSapConnections(MOCK_SOURCES);
+      setIsLoading(false);
+    }, 1000); // 1 saniye bekle
+  }, []);
+
+  // Kullanıcı bir bağlantı seçtiğinde, o bağlantının dinamik alanlarını state'e yazar
+  useEffect(() => {
+    if (formData.connectionId) {
+      const selected = sapConnections.find(s => s.id === formData.connectionId);
+      setConfigFields(selected ? selected.fields : []);
+    } else {
+      setConfigFields([]);
+    }
+  }, [formData.connectionId, sapConnections]);
+
+
+  // === FONKSİYONLAR ===
   const handleChange = (event) => {
-    // Gelen değişikliği formun geçici state'ine yazar
-    setFormData({
-      ...formData,
-      [event.target.name]: event.target.value,
-    });
+    const { name, value } = event.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  return (
-    <Box component="form" noValidate autoComplete="off">
-      <Typography variant="h6" gutterBottom>BAPI Configuration</Typography>
-      
-      {/* Düğüme özel bir isim vermek için bu alanı ekledik. */}
+  const handleSave = () => {
+    // Kaydedilecek veriyi parent component'e gönder
+    onSave(formData);
+    onClose(); // Pencereyi kapat
+  };
+
+  // Dinamik olarak form alanlarını render eder
+  const renderDynamicFields = () => {
+    if (!formData.connectionId) {
+      return <Typography color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>Özellikleri görmek için bir bağlantı seçin.</Typography>;
+    }
+    
+    return configFields.map(field => (
       <TextField
+        key={field.name}
         fullWidth
         margin="dense"
-        id="custom-name"
-        name="customName"
-        label="Custom Name (Optional)"
-        variant="outlined"
-        value={formData.customName || ''}
+        name={field.name}
+        label={field.label}
+        type={field.type || 'text'}
+        value={formData[field.name] || field.defaultValue || ''}
         onChange={handleChange}
-        helperText="A descriptive name for this step in the flow."
+        placeholder={field.placeholder || ''}
+        disabled={field.disabled || false}
+        variant={field.disabled ? 'filled' : 'outlined'}
       />
+    ));
+  };
 
-      {/* Tanımlı SAP bağlantılarından birini seçmek için dropdown menü */}
-      <FormControl fullWidth margin="normal">
-        <InputLabel id="sap-connection-select-label">SAP Connection</InputLabel>
-        <Select
-          labelId="sap-connection-select-label"
-          id="sap-connection-select"
-          value={formData.connectionId || ''}
-          label="SAP Connection"
-          name="connectionId"
-          onChange={handleChange}
+  // === ANA JSX YAPISI ===
+  return (
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+      <DialogTitle sx={{ m: 0, p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        BAPI Düğümünü Yapılandır
+        <IconButton
+          aria-label="close"
+          onClick={onClose}
+          sx={{ color: (theme) => theme.palette.grey[500] }}
         >
-          <MenuItem value=""><em>None</em></MenuItem>
-          {sapSources.map((source) => (
-            <MenuItem key={source.id} value={source.id}>
-              {source.name}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
       
-      {/* Bir bağlantı seçildiğinde, detaylarını gösteren salt-okunur alanlar */}
-      {selectedConnection && (
-        <Box sx={{ border: '1px solid #ddd', borderRadius: 1, p: 2, my: 2, backgroundColor: '#fafafa' }}>
-            <Typography variant="subtitle2" gutterBottom>Connection Details</Typography>
-            <Grid container spacing={2}>
-                <Grid item xs={6}><TextField label="Host" value={selectedConnection.host} fullWidth disabled variant="filled" /></Grid>
-                <Grid item xs={6}><TextField label="Client" value={selectedConnection.client} fullWidth disabled variant="filled" /></Grid>
-            </Grid>
-        </Box>
-      )}
+      <DialogContent dividers>
+        <Typography gutterBottom>
+          Akıştaki bu adım için açıklayıcı bir isim ve bağlantı detaylarını girin.
+        </Typography>
 
-      {/* Çalıştırılacak BAPI fonksiyonunun adının girildiği alan */}
-      <TextField
-        fullWidth
-        margin="normal"
-        id="function-name"
-        name="functionName"
-        label="Function Name"
-        variant="outlined"
-        value={formData.functionName || ''}
-        onChange={handleChange}
-        disabled={!formData.connectionId} // Bağlantı seçilmeden bu alan aktif olmaz
-      />
-    </Box>
+        {/* Custom Name Alanı */}
+        <TextField
+          autoFocus
+          margin="dense"
+          name="customName"
+          label="Düğüm Adı (Opsiyonel)"
+          type="text"
+          fullWidth
+          variant="outlined"
+          value={formData.customName || ''}
+          onChange={handleChange}
+        />
+
+        {/* SAP Connection Dropdown */}
+        <FormControl fullWidth margin="normal" disabled={isLoading}>
+          <InputLabel id="sap-connection-label">SAP Bağlantısı</InputLabel>
+          <Select
+            labelId="sap-connection-label"
+            name="connectionId"
+            value={formData.connectionId || ''}
+            label="SAP Bağlantısı"
+            onChange={handleChange}
+          >
+            <MenuItem value=""><em>Seçilmedi</em></MenuItem>
+            {sapConnections.map((conn) => (
+              <MenuItem key={conn.id} value={conn.id}>{conn.name}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <Divider sx={{ my: 2 }} />
+
+        {/* Dinamik Alanların Gösterildiği Bölüm */}
+        <Box sx={{ minHeight: 150 }}>
+          <Typography variant="h6" gutterBottom>Bağlantı Özellikleri</Typography>
+          {isLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+              <CircularProgress />
+            </Box>
+          ) : error ? (
+            <Alert severity="error">{error}</Alert>
+          ) : (
+            renderDynamicFields()
+          )}
+        </Box>
+      </DialogContent>
+
+      <DialogActions sx={{ p: '16px 24px' }}>
+        <Button onClick={onClose}>İptal</Button>
+        <Button onClick={handleSave} variant="contained" disabled={!formData.connectionId}>
+          Kaydet
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 };
 
