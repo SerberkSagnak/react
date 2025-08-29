@@ -1,0 +1,16 @@
+{
+  "users": [
+    {
+      "username": "test_1",
+      "password": "$2b$10$V/vL2e5blg6BgjvzvvVtA.AAbXJeG4ulmmEKXwG4Vmkg/PyZUvPAy"
+    },
+    {
+      "username": "test_2",
+      "password": "$2b$10$syfQ.FxYN3VbjIkAJra4R.wUU5l9BGTTR/0CWfjwpESbwyDQpatra"
+    },
+    {
+      "username": "test_12",
+      "password": "$2b$10$ZeRE0EzT/uAeJk7etJDOwO6NNaHwv/F9eynFmGGL2ucQ/3rflKfkO"
+    }
+  ]
+}

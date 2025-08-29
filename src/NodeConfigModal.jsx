@@ -5,59 +5,61 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 
-// Pop-up bileşenlerini doğru yollardan import ediyoruz
 import BapiPopup from './popup/bapi_popup.jsx';
 import QueryPopup from './popup/query_popup.jsx';
-import DefaultPopup from './popup/default_popup.jsx'; // Düzeltildi: Dosya yolu hatası giderildi
+import DefaultPopup from './popup/default_popup.jsx';
 
 const NodeConfigModal = ({ isOpen, onClose, nodeData, onNodeDataChange }) => {
-  // Pop-up içindeki formun geçici state'ini burada tutuyoruz
   const [formData, setFormData] = useState({});
 
-  // Modal her açıldığında (yani nodeData değiştiğinde),
-  // form state'ini o node'un mevcut verileriyle dolduruyoruz.
   useEffect(() => {
     if (nodeData) {
-      // nodeData.data'nın bir kopyasını alıyoruz ki orijinal veriyi bozmayalım
       setFormData({ ...(nodeData.data || {}) });
     }
   }, [nodeData]);
 
-  // Modal kapalıysa veya gösterilecek bir düğüm yoksa, hiçbir şey çizme
   if (!isOpen || !nodeData) {
     return null;
   }
 
-  // Düğümün tipine göre doğru pop-up içeriğini seçen fonksiyon
-  const renderPopupContent = () => {
+  const handleSave = (updatedData) => {
+    // Eğer pop-up'tan veri gelirse onu kullan, gelmezse lokal state'i kullan.
+    const dataToSave = updatedData || formData;
+    onNodeDataChange(nodeData.id, dataToSave);
+    onClose();
+  };
+
+  // BAPI tipi kendi modal'ını yönettiği için onu ayrı tutuyoruz.
+  if (nodeData.type === 'bapi') {
+    return (
+      <BapiPopup
+        open={isOpen}
+        onClose={onClose}
+        onSave={handleSave} // handleSave, BapiPopup'tan gelen veriyi işler.
+        initialData={nodeData.data || {}}
+      />
+    );
+  }
+
+  // Diğer tüm pop-up tipleri için genel bir Dialog sarmalayıcı kullanıyoruz.
+  const renderGenericPopupContent = () => {
     switch (nodeData.type) {
-      case 'bapi':
-        // formData'yı ve onu güncelleyecek fonksiyonu BapiPopup'a iletiyoruz
-        return <BapiPopup formData={formData} setFormData={setFormData} />;
       case 'query':
-        // Query için de aynı mantık kurulacak
-        return <QueryPopup nodeData={nodeData} />;
+        return <QueryPopup nodeData={nodeData} formData={formData} setFormData={setFormData} />;
       default:
         return <DefaultPopup nodeData={nodeData} />;
     }
-  };
-
-  // "Save" butonuna basıldığında çalışan fonksiyon
-  const handleSave = () => {
-    // Pop-up içinde güncellenen form verisini olduğu gibi bir üst bileşene yolluyoruz
-    onNodeDataChange(nodeData.id, formData);
-    onClose(); // Modal'ı kapat
   };
 
   return (
     <Dialog open={isOpen} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>Configure Node: {nodeData.type}</DialogTitle>
       <DialogContent dividers>
-        {renderPopupContent()}
+        {renderGenericPopupContent()}
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={handleSave} variant="contained">Save</Button>
+        <Button onClick={() => handleSave()} variant="contained">Save</Button>
       </DialogActions>
     </Dialog>
   );
