@@ -1,12 +1,13 @@
+// FLEXILINKY/server/server.js
+
 import express from 'express';
 import cors from 'cors';
 import sql from 'mssql';
 import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
-import crypto from 'crypto'; // JWT yerine eklendi
-import cookieParser from 'cookie-parser'; // Eklendi
+import crypto from 'crypto';
+import cookieParser from 'cookie-parser';
 
-// .env dosyasındaki değişkenleri yükle
 dotenv.config();
 
 // --- Veritabanı Kurulumu ---
@@ -21,35 +22,34 @@ const dbConfig = {
   },
 };
 
-// Sunucu başladığında veritabanı havuzunu oluştur
 const poolPromise = new sql.ConnectionPool(dbConfig)
   .connect()
   .then(pool => {
-    console.log('Successfully connected to the database.');
+    console.log('✅ Veritabanına başarıyla bağlanıldı.');
     return pool;
   })
-  .catch(err => console.error('Database connection failed:', err));
+  .catch(err => console.error('❌ Veritabanı bağlantısı BAŞARISIZ:', err));
 
 // --- Express Sunucu Kurulumu ---
 const app = express();
 const PORT = 3001;
 
-// Middleware'ler
+// --- Middleware'ler ---
 app.use(cors({
-  origin: 'http://localhost:3000', // React uygulamanızın adresi
-  credentials: true // Tarayıcının çerez gönderebilmesi için gerekli
+  origin: 'http://localhost:5174', // React uygulamanızın adresi (Vite default)
+  credentials: true
 }));
 app.use(express.json());
-app.use(cookieParser()); // cookie-parser middleware'i eklendi
+app.use(cookieParser());
 
 // --- API Endpoints ---
 
-// [POST] /api/register - Yeni kullanıcı kaydı (Değişiklik yok)
+// [POST] /api/register - Yeni kullanıcı kaydı
 app.post('/api/register', async (req, res) => {
   const { username, surname, mail, phone, address, password } = req.body;
 
   if (!username || !password || !surname || !mail) {
-    return res.status(400).json({ message: 'Username, password, surname, and mail are required' });
+    return res.status(400).json({ message: 'Kullanıcı adı, soyadı, mail ve şifre alanları zorunludur.' });
   }
 
   try {
@@ -60,7 +60,7 @@ app.post('/api/register', async (req, res) => {
       .query('SELECT COUNT(*) as count FROM [mosuser].[Users] WHERE [USERNAME] = @username');
 
     if (userCheckResult.recordset[0].count > 0) {
-      return res.status(409).json({ message: 'Username already exists' });
+      return res.status(409).json({ message: 'Bu kullanıcı adı zaten mevcut.' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -88,21 +88,20 @@ app.post('/api/register', async (req, res) => {
         VALUES (@user_id, @user_name, @password)
       `);
 
-    res.status(201).json({ message: 'User registered successfully' });
+    res.status(201).json({ message: 'Kullanıcı başarıyla kaydedildi.' });
 
   } catch (err) {
-    console.error('Registration error:', err);
-    res.status(500).json({ message: 'An error occurred during registration' });
+    console.error('Kayıt hatası:', err);
+    res.status(500).json({ message: 'Kayıt sırasında bir sunucu hatası oluştu.' });
   }
 });
 
-
-// [POST] /api/login - JWT yerine veritabanı oturumu kullanacak şekilde güncellendi
+// [POST] /api/login - Kullanıcı girişi
 app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
-    return res.status(400).json({ message: 'Username and password are required' });
+    return res.status(400).json({ message: 'Kullanıcı adı ve şifre gereklidir.' });
   }
 
   try {
@@ -112,63 +111,34 @@ app.post('/api/login', async (req, res) => {
       .query('SELECT [USER_ID], [PASSWORD] FROM [mosuser].[LOGIN_INFO] WHERE [USER_NAME] = @user_name');
 
     if (result.recordset.length === 0) {
-      return res.status(401).json({ message: 'Geçersiz kullanıcı adı veya şifre' });
+      return res.status(401).json({ message: 'Geçersiz kullanıcı adı veya şifre.' });
     }
 
     const user = result.recordset[0];
     const isPasswordMatch = await bcrypt.compare(password, user.PASSWORD);
 
     if (!isPasswordMatch) {
-      return res.status(401).json({ message: 'Geçersiz kullanıcı adı veya şifre' });
+      return res.status(401).json({ message: 'Geçersiz kullanıcı adı veya şifre.' });
     }
-
-    // --- Veritabanı Oturumu Oluşturma ---
+    
+    // Basit session ID oluştur
     const sessionID = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 saat geçerli
-
-    await pool.request()
-      .input('sessionID', sql.NVarChar, sessionID)
-      .input('userID', sql.Int, user.USER_ID)
-      .input('expiresAt', sql.DateTime, expiresAt)
-      .query('INSERT INTO [mosuser].[Sessions] (SessionID, UserID, ExpiresAt) VALUES (@sessionID, @userID, @expiresAt)');
-
-    // Oturum ID'sini güvenli bir çerez olarak tarayıcıya gönder
+    
     res.cookie('session_id', sessionID, {
-      httpOnly: true, // JavaScript'in çereze erişimini engeller (XSS koruması)
-      secure: process.env.NODE_ENV === 'production', // Sadece HTTPS'te çalışır
-      expires: expiresAt
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 24 * 60 * 60 * 1000 // 24 saat
     });
 
-    res.status(200).json({ message: 'Login successful' });
+    res.status(200).json({ message: 'Giriş başarılı.' });
 
   } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).json({ message: 'An error occurred during login' });
+    console.error('Giriş hatası:', err);
+    res.status(500).json({ message: 'Giriş sırasında bir sunucu hatası oluştu.' });
   }
 });
-
-// [POST] /api/logout - Yeni eklendi
-app.post('/api/logout', async (req, res) => {
-  const sessionID = req.cookies.session_id;
-  if (sessionID) {
-    try {
-      const pool = await poolPromise;
-      // Veritabanından oturumu sil
-      await pool.request()
-        .input('sessionID', sql.NVarChar, sessionID)
-        .query('DELETE FROM [mosuser].[Sessions] WHERE SessionID = @sessionID');
-    } catch (err) {
-      console.error('Logout error:', err);
-    }
-  }
-
-  // Tarayıcıdaki çerezi temizle
-  res.clearCookie('session_id');
-  res.status(200).json({ message: 'Logged out successfully' });
-});
-
 
 // Sunucuyu dinlemeye başla
 app.listen(PORT, () => {
-  console.log(`Backend server is running on http://localhost:${PORT}`);
+  console.log(`🚀 Backend sunucusu http://localhost:${PORT} adresinde çalışıyor`);
 });

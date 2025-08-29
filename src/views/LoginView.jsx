@@ -1,5 +1,6 @@
+// src/views/LoginView.jsx
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom'; // Link import edildi
+import { useNavigate, Link } from 'react-router-dom';
 import { Box, Button, TextField, Typography, Container, Paper, Grid } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 
@@ -15,20 +16,20 @@ const LoginView = () => {
     setError('');
 
     try {
-      const response = await fetch('/api/login', {
+      const response = await fetch('http://localhost:3001/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
+        credentials: 'include',
       });
 
       const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to login');
+        throw new Error(data.message || 'Giriş başarısız oldu.');
       }
 
-      login(); // Kullanıcıyı "giriş yaptı" olarak işaretle
-      navigate('/'); // Ana sayfaya yönlendir
+      login();
+      navigate('/');
 
     } catch (err) {
       setError(err.message);
@@ -38,58 +39,18 @@ const LoginView = () => {
   return (
     <Container component="main" maxWidth="xs">
       <Paper elevation={6} sx={{ mt: 8, p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <Typography component="h1" variant="h5">
-          Sign In
-        </Typography>
+        <Typography component="h1" variant="h5">Sign In</Typography>
         <Box component="form" onSubmit={handleLogin} sx={{ mt: 1 }}>
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            id="username"
-            label="Username"
-            name="username"
-            autoComplete="username"
-            autoFocus
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            name="password"
-            label="Password"
-            type="password"
-            id="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          {error && (
-            <Typography color="error" variant="body2" sx={{ mt: 1 }}>
-              {error}
-            </Typography>
-          )}
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            sx={{ mt: 3, mb: 2 }}
-          >
-            Sign In
-          </Button>
+          <TextField label="Kullanıcı Adı" required fullWidth margin="normal" value={username} onChange={(e) => setUsername(e.target.value)} />
+          <TextField label="Şifre" type="password" required fullWidth margin="normal" value={password} onChange={(e) => setPassword(e.target.value)} />
+          {error && <Typography color="error" variant="body2" sx={{ mt: 1 }}>{error}</Typography>}
+          <Button type="submit" fullWidth variant="contained" sx={{ mt: 3, mb: 2 }}>Giriş Yap</Button>
           <Grid container justifyContent="flex-end">
-            <Grid item>
-              <Link to="/register" variant="body2">
-                {"Don't have an account? Sign Up"}
-              </Link>
-            </Grid>
+            <Grid item><Link to="/register" variant="body2">Hesabınız yok mu? Kayıt Ol</Link></Grid>
           </Grid>
         </Box>
       </Paper>
     </Container>
   );
 };
-
 export default LoginView;
