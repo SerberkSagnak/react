@@ -8,9 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "server": "cd server && node server.js",
-    "kill-server": "pkill -f 'node.*server.js'",
-    "restart-server": "npm run kill-server; npm run server"
+    "server": "nodemon server/server.js"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -18,7 +16,6 @@
     "@mui/icons-material": "^7.3.1",
     "@mui/material": "^7.3.1",
     "bcryptjs": "^3.0.2",
-    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",

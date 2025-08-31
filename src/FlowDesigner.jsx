@@ -140,7 +140,7 @@ const FlowDesignerContent = () => {
         {/* KAYDETME BUTONU */}
         <div style={{ position: 'absolute', top: '10px', right: '10px' }}>
           <button onClick={onSave} style={{ padding: '10px 20px', fontSize: '16px' }}>
-            Akışı Kaydet
+            SAVE FLOW
           </button>
         </div>
       </main>
