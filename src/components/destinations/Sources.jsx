@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
     Box,
     Typography,
@@ -15,51 +15,41 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import BapiPopup from "../../popup/file_popup.jsx"; // popup component
 
 const Sources = () => {
-    const [sources, setSources] = useState([
-        { id: 1, type: "hana", name: "Hana DB – Prod", description: "SAP HANA prod connection" },
-        { id: 2, type: "sap", name: "SAP – Test", description: "SAP BAPI test connection" },
-        { id: 11, type: "hana", name: "Hana DB – Prod", description: "SAP HANA prod connection" },
-        { id: 3, type: "sap", name: "SAP – Test", description: "SAP BAPI test connection" },
-        { id: 4, type: "sap", name: "SAP – Test", description: "SAP BAPI test connection" },
-        { id: 12, type: "hana", name: "Hana DB – Prod", description: "SAP HANA prod connection" },
-        { id: 5324, type: "sap", name: "SAP – Test", description: "SAP BAPI test connection" },
-        { id: 511, type: "sap", name: "SAP – Test", description: "SAP BAPI test connection" },
-        { id: 13, type: "hana", name: "Hana DB – Prod", description: "SAP HANA prod connection" },
-        { id: 5534, type: "sap", name: "SAP – Test", description: "SAP BAPI test connection" },
-        { id: 532, type: "sap", name: "SAP – Test", description: "SAP BAPI test connection" },
-        { id: 15, type: "hana", name: "Hana DB – Prod", description: "SAP HANA prod connection" },
-        { id: 51232, type: "sap", name: "SAP – Test", description: "SAP BAPI test connection" },
-        { id: 512, type: "sap", name: "SAP – Test", description: "SAP BAPI test connection" },
-        { id: 16, type: "hana", name: "Hana DB – Prod", description: "SAP HANA prod connection" },
-        { id: 18, type: "hana", name: "Hana DB – Prod", description: "SAP HANA prod connection" },
-        { id: 51, type: "sap", name: "SAP – Test", description: "SAP BAPI test connection" },
-        { id: 52, type: "sap", name: "SAP – Test", description: "SAP BAPI test connection" },
-        { id: 53, type: "sap", name: "SAP – Test", description: "SAP BAPI test connection" },
-        { id: 54, type: "sap", name: "SAP – Test", description: "SAP BAPI test connection" },
-        { id: 55, type: "sap", name: "SAP – Test", description: "SAP BAPI test connection" },
-        { id: 56, type: "sap", name: "SAP – Test", description: "SAP BAPI test connection" },
-        { id: 57, type: "sap", name: "SAP – Test", description: "SAP BAPI test connection" },
-        { id: 58, type: "sap", name: "SAP – Test", description: "SAP BAPI test connection" },
-        { id: 59, type: "sap", name: "SAP – Test", description: "SAP BAPI test connection" },
-        { id: 500, type: "sap", name: "SAP – Test", description: "SAP BAPI test connection" },
-
-    ]);
+    const [sources, setSources] = useState([]);
+    const [loading, setLoading] = useState(true);
 
     // Popup kontrolü
     const [openPopup, setOpenPopup] = useState(false);
     const [popupType, setPopupType] = useState("");
     const [selectedSource, setSelectedSource] = useState(null);
 
-    // Yeni source ekleme
-    const handleAdd = () => {
-        const newSource = {
-            id: Date.now(),
-            type: "hana",
-            name: `Yeni Source ${sources.length + 1}`,
-            description: "Localde eklenmiş örnek kayıt",
-        };
-        setSources((prev) => [...prev, newSource]);
+    // API'den sources listesini getir
+    const fetchSources = async () => {
+        try {
+            const token = localStorage.getItem('authToken');
+            const response = await fetch('/api/sources', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                setSources(data.map(s => ({
+                    id: s.ID,
+                    type: s.TYPE.toLowerCase(),
+                    name: s.NAME,
+                    description: `${s.TYPE} connection`
+                })));
+            }
+        } catch (err) {
+            console.error('Sources getirilemedi:', err);
+        } finally {
+            setLoading(false);
+        }
     };
+
+    useEffect(() => {
+        fetchSources();
+    }, []);
 
     // Kaydı silme
     const handleDelete = (id) => {
@@ -196,6 +186,7 @@ const Sources = () => {
                 setOpen={setOpenPopup}
                 type={popupType}
                 data={selectedSource}
+                onSave={() => fetchSources()} // Kaydetme sonrası listeyi yenile
             />
         </Box>
     );

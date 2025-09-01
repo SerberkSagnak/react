@@ -36,7 +36,7 @@ const poolPromise = new sql.ConnectionPool(dbConfig)
   .catch(err => console.error('❌ Veritabanı bağlantısı BAŞARISIZ:', err));
 
 // --- Middleware'ler ---
-app.use(cors({ origin: 'http://localhost:5174', credentials: true }));
+app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
 app.use(express.json());
 // cookieParser'a artık ihtiyacımız yok
 
@@ -145,6 +145,120 @@ app.post('/api/templates', requireAuth, async (req, res) => {
   }
 });
 
+
+// --- SOURCES YÖNETİMİ ENDPOINT'LERİ ---
+
+// [GET] /api/sources - Kullanıcının kaydettiği source'ları listele
+app.get('/api/sources', requireAuth, async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .input('userId', sql.Int, userId)
+      .query('SELECT ID, TYPE, NAME FROM [mosuser].[SOURCE] WHERE USER_ID = @userId ORDER BY ID DESC');
+    res.status(200).json(result.recordset);
+  } catch (err) {
+    console.error('Sources listesi getirme hatası:', err);
+    res.status(500).json({ message: 'Sources listesi getirilemedi.' });
+  }
+});
+
+// [POST] /api/sources - Yeni source kaydet
+app.post('/api/sources', requireAuth, async (req, res) => {
+  const userId = req.user.id;
+  const { name, type, details } = req.body;
+  
+  if (!name || !type || !details) {
+    return res.status(400).json({ message: 'Name, type ve details alanları gereklidir.' });
+  }
+
+  if (!['HANA', 'SAP'].includes(type)) {
+    return res.status(400).json({ message: 'Type sadece HANA veya SAP olabilir.' });
+  }
+
+  try {
+    const pool = await poolPromise;
+    const transaction = new sql.Transaction(pool);
+    
+    await transaction.begin();
+    
+    try {
+      // 1. Source'u kaydet
+      const sourceResult = await transaction.request()
+        .input('userId', sql.Int, userId)
+        .input('name', sql.NVarChar, name)
+        .input('type', sql.NVarChar, type)
+        .query('INSERT INTO [mosuser].[SOURCE] (USER_ID, NAME, TYPE) OUTPUT INSERTED.ID VALUES (@userId, @name, @type)');
+      
+      const sourceId = sourceResult.recordset[0].ID;
+
+      // 2. Details'leri kaydet
+      for (const [property, value] of Object.entries(details)) {
+        if (property !== 'password' && value) { // Şifreleri kaydetme
+          await transaction.request()
+            .input('sourceId', sql.Int, sourceId)
+            .input('property', sql.NVarChar, property)
+            .input('value', sql.NVarChar, value)
+            .query('INSERT INTO [mosuser].[SOURCE_INFO] (SOURCE_ID, PROPERTY, VALUE) VALUES (@sourceId, @property, @value)');
+        }
+      }
+
+      await transaction.commit();
+      res.status(201).json({ message: 'Source başarıyla kaydedildi.', sourceId: sourceId });
+      
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  } catch (err) {
+    console.error('Source kaydetme hatası:', err);
+    res.status(500).json({ message: 'Source kaydedilirken bir hata oluştu.' });
+  }
+});
+
+// [GET] /api/sources/:id - Belirli bir source'un detaylarını getir
+app.get('/api/sources/:id', requireAuth, async (req, res) => {
+  const userId = req.user.id;
+  const sourceId = req.params.id;
+  
+  try {
+    const pool = await poolPromise;
+    
+    // Source'un kullanıcıya ait olup olmadığını kontrol et
+    const sourceResult = await pool.request()
+      .input('userId', sql.Int, userId)
+      .input('sourceId', sql.Int, sourceId)
+      .query('SELECT ID, TYPE, NAME FROM [mosuser].[SOURCE] WHERE ID = @sourceId AND USER_ID = @userId');
+    
+    if (sourceResult.recordset.length === 0) {
+      return res.status(404).json({ message: 'Source bulunamadı veya erişim yetkiniz yok.' });
+    }
+
+    const source = sourceResult.recordset[0];
+
+    // Details'leri getir
+    const detailsResult = await pool.request()
+      .input('sourceId', sql.Int, sourceId)
+      .query('SELECT PROPERTY, VALUE FROM [mosuser].[SOURCE_INFO] WHERE SOURCE_ID = @sourceId');
+
+    // Details'leri obje formatına çevir
+    const details = {};
+    detailsResult.recordset.forEach(row => {
+      details[row.PROPERTY] = row.VALUE;
+    });
+
+    res.status(200).json({
+      id: source.ID,
+      name: source.NAME,
+      type: source.TYPE,
+      details: details
+    });
+
+  } catch (err) {
+    console.error('Source detayları getirme hatası:', err);
+    res.status(500).json({ message: 'Source detayları getirilemedi.' });
+  }
+});
 
 // --- Sunucuyu Dinlemeye Başla ---
 app.listen(PORT, () => {

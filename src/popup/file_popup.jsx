@@ -112,7 +112,7 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
         }, 1200);
     };
 
-    // --- Save işlemi (simule edilmiş) ---
+    // --- Save işlemi (API'ye kaydet) ---
     const handleSave = async () => {
         if (type === "SAP" && !validateSAP()) {
             setSnackbar({ open: true, severity: "warning", message: "SAP alanları eksik. Kaydedinmek için doldurun." });
@@ -125,20 +125,46 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
 
         setSaving(true);
 
-        setTimeout(() => {
-            setSaving(false);
-            setSnackbar({ open: true, severity: "success", message: "Ayarlar kaydedildi (simülasyon)." });
+        try {
+            const details = type === "SAP" 
+                ? { host: sapHost, instance: sapInstance, client: sapClient, language: sapLanguage, user: sapUser }
+                : { server: hanaServer, username: hanaUsername, database: hanaDatabase, schema: hanaSchema };
 
-            if (typeof onSave === "function") {
-                const payload = type === "SAP"
-                    ? { type: "SAP", host: sapHost, instance: sapInstance, client: sapClient, language: sapLanguage, user: sapUser }
-                    : { type: "Hana", server: hanaServer, username: hanaUsername, database: hanaDatabase, schema: hanaSchema };
+            const sourceName = prompt("Source için bir isim girin:") || `${type}_${Date.now()}`;
 
-                onSave(payload);
+            const token = localStorage.getItem('authToken');
+            const response = await fetch('/api/sources', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    name: sourceName,
+                    type: type.toUpperCase(),
+                    details: details
+                })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                setSnackbar({ open: true, severity: "success", message: "Source başarıyla kaydedildi!" });
+                
+                if (typeof onSave === "function") {
+                    onSave({ ...details, type: type, name: sourceName, id: result.sourceId });
+                }
+                
+                setOpen(false);
+            } else {
+                setSnackbar({ open: true, severity: "error", message: result.message || "Kaydetme hatası." });
             }
-
-            setOpen(false);
-        }, 900);
+        } catch (err) {
+            console.error('Save error:', err);
+            setSnackbar({ open: true, severity: "error", message: "Bağlantı hatası oluştu." });
+        } finally {
+            setSaving(false);
+        }
     };
 
     const handleCancel = () => setOpen(false);
