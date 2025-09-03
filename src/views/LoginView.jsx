@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 
 const LoginView = () => {
   const navigate = useNavigate();
-  const { login } = useAuth(); // AuthContext'ten login fonksiyonunu al
+  const { login } = useAuth(); // Get login function from AuthContext
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -19,19 +19,19 @@ const LoginView = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
-        // Not: JWT token header'da gönderildiği için 'credentials: include' artık zorunlu değil.
+        // Note: 'credentials: include' is no longer required since JWT token is sent in header.
       });
 
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.message || 'Giriş başarısız oldu.');
+        throw new Error(data.message || 'Login failed.');
       }
 
-      // ***** DEĞİŞİKLİK BURADA *****
-      // Sunucudan gelen token'ı (data.token) alıp AuthContext'teki login fonksiyonuna iletiyoruz.
+      // ***** CHANGE HERE *****
+      // Take the token from the server (data.token) and pass it to the login function in AuthContext.
       login(data.token);
 
-      // Ana sayfaya yönlendir
+      // Redirect to main page
       navigate('/');
 
     } catch (err) {
@@ -45,7 +45,7 @@ const LoginView = () => {
         <Typography component="h1" variant="h5">Sign In</Typography>
         <Box component="form" onSubmit={handleLogin} sx={{ mt: 1 }}>
           <TextField 
-            label="Kullanıcı Adı" 
+            label="USER NAME" 
             required 
             fullWidth 
             margin="normal" 
@@ -55,7 +55,7 @@ const LoginView = () => {
             autoFocus
           />
           <TextField 
-            label="Şifre" 
+            label="PASSWORD" 
             type="password" 
             required 
             fullWidth 
@@ -65,9 +65,9 @@ const LoginView = () => {
             autoComplete="current-password"
           />
           {error && <Typography color="error" variant="body2" sx={{ mt: 1 }}>{error}</Typography>}
-          <Button type="submit" fullWidth variant="contained" sx={{ mt: 3, mb: 2 }}>Giriş Yap</Button>
+          <Button type="submit" fullWidth variant="contained" sx={{ mt: 3, mb: 2 }}>Login</Button>
           <Grid container justifyContent="flex-end">
-            <Grid item><Link to="/register" variant="body2">Hesabınız yok mu? Kayıt Ol</Link></Grid>
+            <Grid item><Link to="/register" variant="body2">Register Now</Link></Grid>
           </Grid>
         </Box>
       </Paper>

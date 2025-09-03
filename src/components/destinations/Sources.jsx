@@ -18,12 +18,12 @@ const Sources = () => {
     const [sources, setSources] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Popup kontrolü
+    // Popup control
     const [openPopup, setOpenPopup] = useState(false);
     const [popupType, setPopupType] = useState("");
     const [selectedSource, setSelectedSource] = useState(null);
 
-    // API'den sources listesini getir
+    // Fetch sources list from API
     const fetchSources = async () => {
         try {
             const token = localStorage.getItem('authToken');
@@ -41,7 +41,7 @@ const Sources = () => {
                 })));
             }
         } catch (err) {
-            console.error('Sources getirilemedi:', err);
+            console.error('Could not fetch sources:', err);
         } finally {
             setLoading(false);
         }
@@ -51,19 +51,19 @@ const Sources = () => {
         fetchSources();
     }, []);
 
-    // Kaydı silme
+    // Delete record
     const handleDelete = (id) => {
         setSources((prev) => prev.filter((s) => s.id !== id));
     };
 
-    // Detay veya edit butonuna tıklayınca popup açma
+    // Open popup when details or edit button is clicked
     const handleDetails = (source) => {
         setPopupType(source.type === "hana" ? "Hana" : "SAP");
         setSelectedSource(source);
         setOpenPopup(true);
     };
 
-    // İkon seçimi
+    // Icon selection
     const getIcon = (type) => {
         if (type === "hana") {
             return (
@@ -85,12 +85,12 @@ const Sources = () => {
                 Set up a new sources
             </Typography>
 
-            {/* Kart butonlar */}
+            {/* Card buttons */}
             <DataSourceCards openPopup={openPopup} setOpenPopup={setOpenPopup} setPopupType={setPopupType} />
 
             <hr className="my-4 border-t border-gray-300" />
 
-            {/* Liste */}
+            {/* List */}
             <Stack
                 spacing={1}
                 sx={{
@@ -128,7 +128,7 @@ const Sources = () => {
                         </Box>
 
                         <Box sx={{ display: "flex", gap: 1 }}>
-                            {/* Edit butonu */}
+                            {/* Edit button */}
                             <IconButton
                                 size="small"
                                 color="primary"
@@ -142,7 +142,7 @@ const Sources = () => {
                                 <EditIcon fontSize="small" />
                             </IconButton>
 
-                            {/* Details butonu */}
+                            {/* Details button */}
                             <IconButton
                                 size="small"
                                 color="info"
@@ -156,7 +156,7 @@ const Sources = () => {
                                 <InfoOutlinedIcon fontSize="small" />
                             </IconButton>
 
-                            {/* Delete butonu */}
+                            {/* Delete button */}
                             <IconButton
                                 size="small"
                                 color="error"
@@ -175,7 +175,7 @@ const Sources = () => {
 
                 {sources.length === 0 && (
                     <Typography sx={{ textAlign: "center", color: "text.secondary", mt: 2 }}>
-                        Henüz source yok.
+                        No sources yet.
                     </Typography>
                 )}
             </Stack>
@@ -186,7 +186,7 @@ const Sources = () => {
                 setOpen={setOpenPopup}
                 type={popupType}
                 data={selectedSource}
-                onSave={() => fetchSources()} // Kaydetme sonrası listeyi yenile
+                onSave={() => fetchSources()} // Refresh list after saving
             />
         </Box>
     );
@@ -200,7 +200,7 @@ function DataSourceCards({ setOpenPopup, setPopupType }) {
 
     return (
         <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-            {/* Hana DB kartı */}
+            {/* Hana DB card */}
             <Button
                 onClick={() => handleOpen("Hana")}
                 variant="outlined"
@@ -225,11 +225,11 @@ function DataSourceCards({ setOpenPopup, setPopupType }) {
                 </Box>
                 <Box sx={{ textAlign: "left" }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Hana DB</Typography>
-                    <Typography variant="caption" sx={{ color: "text.secondary" }}>SAP HANA bağlantısı ekle</Typography>
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>Add SAP HANA connection</Typography>
                 </Box>
             </Button>
 
-            {/* SAP kartı */}
+            {/* SAP card */}
             <Button
                 onClick={() => handleOpen("SAP")}
                 variant="outlined"
@@ -254,7 +254,7 @@ function DataSourceCards({ setOpenPopup, setPopupType }) {
                 </Box>
                 <Box sx={{ textAlign: "left" }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>SAP</Typography>
-                    <Typography variant="caption" sx={{ color: "text.secondary" }}>BAPI / RFC bağlantısı</Typography>
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>BAPI / RFC connection</Typography>
                 </Box>
             </Button>
         </Stack>

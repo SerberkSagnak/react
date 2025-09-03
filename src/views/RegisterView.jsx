@@ -6,11 +6,10 @@ import { Box, Button, TextField, Typography, Container, Paper, Grid } from '@mui
 const RegisterView = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    username: '',
+    name: '',
     surname: '',
+    username: '',
     mail: '',
-    phone: '',
-    address: '',
     password: '',
   });
   const [error, setError] = useState('');
@@ -35,10 +34,10 @@ const RegisterView = () => {
 
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.message || 'Kayıt başarısız oldu.');
+        throw new Error(data.message || 'Registration failed.');
       }
 
-      setSuccess('Kayıt başarılı! Giriş sayfasına yönlendiriliyorsunuz...');
+      setSuccess('Registration successful! Redirecting to login page...');
       setTimeout(() => navigate('/login'), 2000);
 
     } catch (err) {
@@ -51,17 +50,16 @@ const RegisterView = () => {
       <Paper elevation={6} sx={{ mt: 8, p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <Typography component="h1" variant="h5">Sign Up</Typography>
         <Box component="form" onSubmit={handleRegister} sx={{ mt: 1 }}>
-          <TextField name="username" label="Kullanıcı Adı" required fullWidth margin="normal" value={formData.username} onChange={handleChange} />
-          <TextField name="surname" label="Soyadı" required fullWidth margin="normal" value={formData.surname} onChange={handleChange} />
-          <TextField name="mail" label="E-posta Adresi" type="email" required fullWidth margin="normal" value={formData.mail} onChange={handleChange} />
-          <TextField name="phone" label="Telefon Numarası" fullWidth margin="normal" value={formData.phone} onChange={handleChange} />
-          <TextField name="address" label="Adres" fullWidth margin="normal" value={formData.address} onChange={handleChange} />
-          <TextField name="password" label="Şifre" type="password" required fullWidth margin="normal" value={formData.password} onChange={handleChange} />
+          <TextField name="name" label="NAME" required fullWidth margin="normal" value={formData.name} onChange={handleChange} />
+          <TextField name="surname" label="SURNAME" required fullWidth margin="normal" value={formData.surname} onChange={handleChange} />
+          <TextField name="username" label="USER NAME" required fullWidth margin="normal" value={formData.username} onChange={handleChange} />
+          <TextField name="mail" label="E-mail" type="email" required fullWidth margin="normal" value={formData.mail} onChange={handleChange} />
+          <TextField name="password" label="PASSWORD" type="password" required fullWidth margin="normal" value={formData.password} onChange={handleChange} />
           {error && <Typography color="error" variant="body2" sx={{ mt: 1 }}>{error}</Typography>}
           {success && <Typography color="primary" variant="body2" sx={{ mt: 1 }}>{success}</Typography>}
-          <Button type="submit" fullWidth variant="contained" sx={{ mt: 3, mb: 2 }}>Kayıt Ol</Button>
+          <Button type="submit" fullWidth variant="contained" sx={{ mt: 3, mb: 2 }}>Register</Button>
           <Grid container justifyContent="flex-end">
-            <Grid item><Link to="/login" variant="body2">Zaten bir hesabınız var mı? Giriş Yap</Link></Grid>
+            <Grid item><Link to="/login" variant="body2">U have an account? Sign In</Link></Grid>
           </Grid>
         </Box>
       </Paper>

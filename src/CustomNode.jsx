@@ -3,7 +3,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { memo } from 'react';
 
-// Düğüm tipleri için renk ve ikonlar
+// Colors and icons for node types
 const nodeStyles = {
   bapi: { icon: 'B', backgroundColor: '#cce5ff', borderColor: '#b8daff' },
   query: { icon: 'Q', backgroundColor: '#d4edda', borderColor: '#c3e6cb' },
@@ -15,7 +15,7 @@ const nodeStyles = {
   output: { icon: 'O', backgroundColor: '#fefefe', borderColor: '#ddd' },
 };
 
-// Düğüm tiplerini rollerine göre sınıflandırıyoruz
+// Classify node types by their roles
 const nodeRoles = {
   source: ['bapi', 'query', 'tableSource', 'input'],
   destination: ['file', 'tableDestination', 'output'],
@@ -23,27 +23,57 @@ const nodeRoles = {
 };
 
 const CustomNode = ({ data, type }) => {
-  const style = nodeStyles[type] || nodeStyles.default;
+  const baseStyle = nodeStyles[type] || nodeStyles.default;
+  
+  // Determine style based on execution status
+  const executionStatus = data.executionStatus;
+  const getExecutionStyle = () => {
+    switch (executionStatus) {
+      case 'waiting':
+        return { backgroundColor: '#f8f9fa', borderColor: '#dee2e6', opacity: 0.7 };
+      case 'processing':
+        return { backgroundColor: '#fff3cd', borderColor: '#ffc107', boxShadow: '0 0 10px rgba(255,193,7,0.5)' };
+      case 'completed':
+        return { backgroundColor: '#d4edda', borderColor: '#28a745', boxShadow: '0 0 10px rgba(40,167,69,0.3)' };
+      case 'error':
+        return { backgroundColor: '#f8d7da', borderColor: '#dc3545', boxShadow: '0 0 10px rgba(220,53,69,0.3)' };
+      default:
+        return baseStyle;
+    }
+  };
+
+  const style = executionStatus ? getExecutionStyle() : baseStyle;
 
   const isSource = nodeRoles.source.includes(type);
   const isDestination = nodeRoles.destination.includes(type);
   const isTransform = nodeRoles.transform.includes(type);
   
-  // Etiket mantığını daha temiz ve yönlendirici hale getirdik.
+  // Made label logic cleaner and more directive.
   const hasCustomName = data.customName && data.customName.trim() !== '';
   const nodeLabel = hasCustomName ? data.customName : '(Double-click to configure)';
+
+  // Execution status icon
+  const getStatusIcon = () => {
+    switch (executionStatus) {
+      case 'waiting': return '⏳';
+      case 'processing': return '🟡';
+      case 'completed': return '✅';
+      case 'error': return '❌';
+      default: return '';
+    }
+  };
 
   return (
     <Box sx={{
       backgroundColor: style.backgroundColor,
       border: `1px solid ${style.borderColor}`,
       borderRadius: '8px',
-      width: 200, // Genişliği biraz daha artırdık
+      width: 200, // Increased width slightly
       textAlign: 'center',
       boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
-      opacity: hasCustomName ? 1 : 0.95, // Konfigüre edilmemişse biraz soluk
+      opacity: hasCustomName ? 1 : 0.95, // Slightly faded if not configured
     }}>
-      {/* Sadece hedef veya işlem düğümlerinde giriş noktası göster */}
+      {/* Show input point only on target or transform nodes */}
       {(isDestination || isTransform) && (
         <Handle type="target" position={Position.Left} style={{ background: '#555' }} />
       )}
@@ -63,9 +93,15 @@ const CustomNode = ({ data, type }) => {
         }}>
           {style.icon}
         </Box>
-        <Typography variant="caption" sx={{ textTransform: 'capitalize', fontWeight: 'bold' }}>
+        <Typography variant="caption" sx={{ textTransform: 'capitalize', fontWeight: 'bold', flex: 1 }}>
           {type}
         </Typography>
+        {/* Execution status icon */}
+        {getStatusIcon() && (
+          <Typography sx={{ fontSize: '1rem', ml: 1 }}>
+            {getStatusIcon()}
+          </Typography>
+        )}
       </Box>
       <Box sx={{ padding: '10px 15px', minHeight: '20px' }}>
         <Typography 
@@ -80,7 +116,7 @@ const CustomNode = ({ data, type }) => {
         </Typography>
       </Box>
 
-      {/* Sadece kaynak veya işlem düğümlerinde çıkış noktası göster */}
+      {/* Show output point only on source or transform nodes */}
       {(isSource || isTransform) && (
         <Handle type="source" position={Position.Right} style={{ background: '#555' }} />
       )}

@@ -18,14 +18,14 @@ import CloseIcon from "@mui/icons-material/Close";
 
 /**
  * BapiPopup
- * - open: boolean -> dialog açık/kapalı
- * - setOpen: fn -> dialog'ı kapatmak için kullanılacak fonksiyon
- * - type: "Hana" | "SAP" -> hangi formun gösterileceği
- * - data: obje -> Details tıklanınca gelen item verisi (ör: { host, instance, client, user, ... })
+ * - open: boolean -> dialog open/closed
+ * - setOpen: fn -> function to be used to close dialog
+ * - type: "Hana" | "SAP" -> which form will be displayed
+ * - data: object -> item data received when Details is clicked (e.g., { host, instance, client, user, ... })
  * - onSave: fn -> kaydetme sonrası parent’a dönen callback
  */
 export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data }) {
-    // --- ortak durumlar ---
+    // --- common states ---
     const [testing, setTesting] = useState(false);
     const [testResult, setTestResult] = useState(null);
     const [saving, setSaving] = useState(false);
@@ -55,40 +55,40 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
                 setSapClient(data.client || "");
                 setSapLanguage(data.language || "");
                 setSapUser(data.user || "");
-                setSapPassword(""); // güvenlik için boş bırak
+                setSapPassword(""); // leave empty for security
             } else {
                 setHanaServer(data.server || "");
                 setHanaUsername(data.username || "");
-                setHanaPassword(""); // güvenlik için boş bırak
+                setHanaPassword(""); // leave empty for security
                 setHanaDatabase(data.database || "");
                 setHanaSchema(data.schema || "");
             }
         }
 
         if (!open) {
-            // popup kapandığında state sıfırla
+            // reset state when popup closes
             setTesting(false);
             setSaving(false);
             setTestResult(null);
         }
     }, [open, data, type]);
 
-    // --- Basit istemci tarafı doğrulama ---
+    // --- Simple client-side validation ---
     const validateSAP = () => sapHost.trim() && sapInstance.trim() && sapClient.trim() && sapUser.trim() && sapPassword.trim();
     const validateHANA = () => hanaServer.trim() && hanaUsername.trim() && hanaPassword.trim() && hanaDatabase.trim();
 
-    // --- Test connection (simule edilmiş) ---
+    // --- Test connection (simulated) ---
     const handleTestConnection = async () => {
         setTestResult(null);
 
         if (type === "SAP") {
             if (!validateSAP()) {
-                setSnackbar({ open: true, severity: "warning", message: "Lütfen SAP için tüm zorunlu alanları doldurun." });
+                setSnackbar({ open: true, severity: "warning", message: "Please fill in all required fields for SAP." });
                 return;
             }
         } else {
             if (!validateHANA()) {
-                setSnackbar({ open: true, severity: "warning", message: "Lütfen HANA için tüm zorunlu alanları doldurun." });
+                setSnackbar({ open: true, severity: "warning", message: "Please fill in all required fields for HANA." });
                 return;
             }
         }
@@ -102,24 +102,24 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
                 (type === "Hana" && hanaUsername.toLowerCase().includes("fail"));
 
             if (failCondition) {
-                setTestResult({ success: false, message: "Bağlantı testi başarısız (simülasyon)." });
-                setSnackbar({ open: true, severity: "error", message: "Test bağlantısı başarısız." });
+                setTestResult({ success: false, message: "Connection test failed (simulation)." });
+                setSnackbar({ open: true, severity: "error", message: "Test connection failed." });
             } else {
-                setTestResult({ success: true, message: "Bağlantı testi başarılı." });
-                setSnackbar({ open: true, severity: "success", message: "Test bağlantısı başarılı." });
+                setTestResult({ success: true, message: "Connection test successful." });
+                setSnackbar({ open: true, severity: "success", message: "Test connection successful." });
             }
             setTesting(false);
         }, 1200);
     };
 
-    // --- Save işlemi (API'ye kaydet) ---
+    // --- Save operation (save to API) ---
     const handleSave = async () => {
         if (type === "SAP" && !validateSAP()) {
-            setSnackbar({ open: true, severity: "warning", message: "SAP alanları eksik. Kaydedinmek için doldurun." });
+            setSnackbar({ open: true, severity: "warning", message: "SAP fields are missing. Please fill them to save." });
             return;
         }
         if (type === "Hana" && !validateHANA()) {
-            setSnackbar({ open: true, severity: "warning", message: "HANA alanları eksik. Kaydedinmek için doldurun." });
+            setSnackbar({ open: true, severity: "warning", message: "HANA fields are missing. Please fill them to save." });
             return;
         }
 
@@ -130,7 +130,7 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
                 ? { host: sapHost, instance: sapInstance, client: sapClient, language: sapLanguage, user: sapUser }
                 : { server: hanaServer, username: hanaUsername, database: hanaDatabase, schema: hanaSchema };
 
-            const sourceName = prompt("Source için bir isim girin:") || `${type}_${Date.now()}`;
+            const sourceName = prompt("Enter a name for the source:") || `${type}_${Date.now()}`;
 
             const token = localStorage.getItem('authToken');
             const response = await fetch('/api/sources', {
@@ -149,7 +149,7 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
             const result = await response.json();
 
             if (response.ok) {
-                setSnackbar({ open: true, severity: "success", message: "Source başarıyla kaydedildi!" });
+                setSnackbar({ open: true, severity: "success", message: "Source saved successfully!" });
                 
                 if (typeof onSave === "function") {
                     onSave({ ...details, type: type, name: sourceName, id: result.sourceId });
@@ -157,11 +157,11 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
                 
                 setOpen(false);
             } else {
-                setSnackbar({ open: true, severity: "error", message: result.message || "Kaydetme hatası." });
+                setSnackbar({ open: true, severity: "error", message: result.message || "Save error." });
             }
         } catch (err) {
             console.error('Save error:', err);
-            setSnackbar({ open: true, severity: "error", message: "Bağlantı hatası oluştu." });
+            setSnackbar({ open: true, severity: "error", message: "Connection error occurred." });
         } finally {
             setSaving(false);
         }
@@ -213,7 +213,7 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
                     <TextField fullWidth type="password" label="Password" value={hanaPassword} onChange={(e) => setHanaPassword(e.target.value)} required />
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                    <TextField fullWidth label="Schema (opsiyonel)" value={hanaSchema} onChange={(e) => setHanaSchema(e.target.value)} />
+                    <TextField fullWidth label="Schema (optional)" value={hanaSchema} onChange={(e) => setHanaSchema(e.target.value)} />
                 </Grid>
             </Grid>
         </Box>
@@ -223,7 +223,7 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
         <>
             <Dialog open={open} onClose={handleCancel} maxWidth="md" fullWidth>
                 <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <Typography variant="h6">{type === "SAP" ? "SAP Bağlantı Ayarları" : "HANA Bağlantı Ayarları"}</Typography>
+                    <Typography variant="h6">{type === "SAP" ? "SAP Connection Settings" : "HANA Connection Settings"}</Typography>
                     <IconButton onClick={handleCancel} size="small" aria-label="close">
                         <CloseIcon />
                     </IconButton>
@@ -232,8 +232,8 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
                 <DialogContent dividers>
                     <Typography variant="body2" sx={{ mb: 2, color: "text.secondary" }}>
                         {type === "SAP"
-                            ? "SAP sistemine bağlanmak için gerekli bilgileri giriniz."
-                            : "HANA veritabanına bağlanmak için gerekli bilgileri giriniz."}
+                            ? "Enter the required information to connect to the SAP system."
+                            : "Enter the required information to connect to the HANA database."}
                     </Typography>
 
                     {type === "SAP" ? renderSAPForm() : renderHanaForm()}
@@ -242,7 +242,7 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
                         {testing ? (
                             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                                 <CircularProgress size={20} />
-                                <Typography variant="body2">Bağlantı testi yapılıyor...</Typography>
+                                <Typography variant="body2">Testing connection...</Typography>
                             </Box>
                         ) : testResult ? (
                             <Alert severity={testResult.success ? "success" : "error"} sx={{ mt: 1 }}>
@@ -250,7 +250,7 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
                             </Alert>
                         ) : (
                             <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                                Bağlantı testi yapılmadı.
+                                Connection test not performed.
                             </Typography>
                         )}
                     </Box>

@@ -12,16 +12,16 @@ import SourceIcon from '@mui/icons-material/Source';
 import OutputIcon from '@mui/icons-material/Output';
 import LogoutIcon from '@mui/icons-material/Logout';
 
-// View ve diğer bileşenleri import ediyoruz
+// Import views and other components
 import BuilderView from './views/BuilderView.jsx';
 import SourcesView from './views/SourcesView.jsx';
 import DestinationsView from './views/DestinationsView.jsx';
 import LoginView from './views/LoginView.jsx';
-import RegisterView from './views/RegisterView.jsx'; // Yeni import
+import RegisterView from './views/RegisterView.jsx'; // New import
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 
-// Ana uygulama arayüzü (eski App.jsx içeriği)
+// Main application interface (old App.jsx content)
 function MainLayout() {
   const [activeView, setActiveView] = useState('builder');
   const { logout } = useAuth();
@@ -80,12 +80,12 @@ function MainLayout() {
   );
 }
 
-// Yeni App bileşeni sadece yönlendirme mantığını içerir
+// New App component only contains routing logic
 function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginView />} />
-      <Route path="/register" element={<RegisterView />} /> {/* Yeni Rota */}
+      <Route path="/register" element={<RegisterView />} /> {/* New Route */}
       <Route element={<ProtectedRoute />}>
         <Route path="/*" element={<MainLayout />} />
       </Route>

@@ -2,11 +2,11 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
-// Yeni bileşenlerimizi import ediyoruz
+// Import our new components
 import DestinationList from '../components/destinations/Sources';
 import Sources from '../components/destinations/Sources';
 const SourcesView = () => {
-  // Hangi görünümün aktif olduğunu tutan state: 'list' veya 'new'
+  // State that holds which view is active: 'list' or 'new'
   const [viewMode, setViewMode] = useState('list');
 
   return (
@@ -16,7 +16,7 @@ const SourcesView = () => {
       )}
 
       {viewMode === 'new' && (
-        <Sources setViewMode={setViewMode} /> // Geri dönmek için setViewMode'u buraya da ekleyebiliriz
+        <Sources setViewMode={setViewMode} /> // We can add setViewMode here too to go back
       )}
     </Box>
   );

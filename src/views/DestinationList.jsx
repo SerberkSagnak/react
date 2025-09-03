@@ -254,7 +254,7 @@ function DataSourceCards({ setOpenPopup, setPopupType }) {
         <Box textAlign="left">
           <Typography variant="subtitle2">SAP</Typography>
           <Typography variant="caption" color="text.secondary">
-            BAPI / RFC bağlantısı
+            BAPI / RFC bağlantısı ekle
           </Typography>
         </Box>
       </Button>

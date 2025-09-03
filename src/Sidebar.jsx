@@ -15,7 +15,7 @@ import AddIcon from '@mui/icons-material/Add';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import EditIcon from '@mui/icons-material/Edit';
 
-// Bu bölüm sürükle-bırak fonksiyonları için gerekli
+// This section is required for drag-and-drop functions
 const nodeStyle = {
   border: '1px solid #1976d2',
   color: '#1976d2',
@@ -41,34 +41,9 @@ const Sidebar = ({ openFlows, activeFlowId, onSwitchFlow, onNewFlow, savedTempla
       </Typography>
       <Divider sx={{ mb: 2 }} />
 
-      {/* --- BUILDER BÖLÜMÜ --- */}
-      <Accordion defaultExpanded>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography sx={{ fontWeight: 'bold' }}>Builder</Typography>
-        </AccordionSummary>
-        <AccordionDetails sx={{ p: 1 }}>
-          <List dense>
-            <ListItem disablePadding>
-              <ListItemButton onClick={onNewFlow}>
-                <ListItemIcon sx={{ minWidth: '32px' }}><AddIcon fontSize="small" color="primary" /></ListItemIcon>
-                <ListItemText primary="Yeni Akış Ekle" primaryTypographyProps={{ color: 'primary', fontWeight: 'bold' }} />
-              </ListItemButton>
-            </ListItem>
-            {Object.keys(openFlows).map(flowId => (
-              <ListItem key={flowId} disablePadding selected={flowId === activeFlowId}>
-                <ListItemButton onClick={() => onSwitchFlow(flowId)}>
-                  <ListItemIcon sx={{ minWidth: '32px' }}>
-                    <EditIcon fontSize="small" color={flowId === activeFlowId ? 'primary' : 'inherit'} />
-                  </ListItemIcon>
-                  <ListItemText primary={openFlows[flowId].label} />
-                </ListItemButton>
-              </ListItem>
-            ))}
-          </List>
-        </AccordionDetails>
-      </Accordion>
 
-      {/* --- SOURCES BÖLÜMÜ (GERİ EKLENDİ) --- */}
+
+      {/* --- SOURCES SECTION (ADDED BACK) --- */}
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography sx={{ fontWeight: 'bold' }}>Sources</Typography>
@@ -80,7 +55,7 @@ const Sidebar = ({ openFlows, activeFlowId, onSwitchFlow, onNewFlow, savedTempla
         </AccordionDetails>
       </Accordion>
       
-      {/* --- DESTINATIONS BÖLÜMÜ (GERİ EKLENDİ) --- */}
+      {/* --- DESTINATIONS SECTION (ADDED BACK) --- */}
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography sx={{ fontWeight: 'bold' }}>Destinations</Typography>
@@ -93,8 +68,8 @@ const Sidebar = ({ openFlows, activeFlowId, onSwitchFlow, onNewFlow, savedTempla
 
       <Divider sx={{ my: 2 }} />
 
-      {/* --- KAYITLI AKIŞLAR BÖLÜMÜ --- */}
-      <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Kayıtlı Akışlar</Typography>
+      {/* --- SAVED FLOWS SECTION --- */}
+      <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Saved Flows</Typography>
       <Box sx={{ overflowY: 'auto', flex: 1 }}>
         <List dense>
             {savedTemplates && savedTemplates.length > 0 ? (
@@ -107,7 +82,7 @@ const Sidebar = ({ openFlows, activeFlowId, onSwitchFlow, onNewFlow, savedTempla
                     </ListItem>
                 ))
             ) : (
-                <ListItem><ListItemText secondary="Henüz kayıtlı akışınız yok." /></ListItem>
+                <ListItem><ListItemText secondary="You don't have any saved flows yet." /></ListItem>
             )}
         </List>
       </Box>
