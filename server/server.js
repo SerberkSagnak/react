@@ -18,16 +18,6 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 const app = express();
 const port = process.env.PORT || 3001;
 
-// dist klasörünü serve et
-app.use(express.static(path.join(__dirname, '../dist')));
-
-// SPA fallback: tüm route’ları index.html’e yönlendir
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../dist/index.html'));
-});
-
-
-
 // --- Veritabanı Kurulumu ---
 const dbConfig = {
   user: process.env.DB_USER,
