@@ -26,6 +26,8 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
+
+
 // --- Veritabanı Kurulumu ---
 const dbConfig = {
   user: process.env.DB_USER,
@@ -523,6 +525,6 @@ app.get('/api/sources/:id', requireAuth, async (req, res) => {
 });
 
 // --- Sunucuyu Dinlemeye Başla ---
-app.listen(port, () => {
+app.listen(port,'0.0.0.0', () => {
   console.log(`🚀 Backend sunucusu http://localhost:${port} adresinde çalışıyor`);
 });
