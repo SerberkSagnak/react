@@ -14,6 +14,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.join(__dirname, '../.env') }); 
+// dist klasörünü serve et
+app.use(express.static(path.join(__dirname, '../dist')));
+
+// SPA fallback: tüm route’ları index.html’e yönlendir
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../dist/index.html'));
+});
+
 
 
 const app = express();
