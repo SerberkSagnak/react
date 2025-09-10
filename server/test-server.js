@@ -10,7 +10,7 @@ const PORT = 3001;
 console.log(`--- BU BİR TEST SUNUCUSUDUR! --- Versiyon: ${new Date().toLocaleTimeString()} ---`);
 
 app.use(cors({
-  origin: 'http://localhost:5174',
+  origin: 'http://localhost:5173',
   credentials: true
 }));
 

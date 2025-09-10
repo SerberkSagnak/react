@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
     Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
     Button,
     TextField,
     Grid,
@@ -12,156 +9,278 @@ import {
     CircularProgress,
     Snackbar,
     Alert,
-    IconButton
+    IconButton,
+    MenuItem,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 
-/**
- * BapiPopup
- * - open: boolean -> dialog açık/kapalı
- * - setOpen: fn -> dialog'ı kapatmak için kullanılacak fonksiyon
- * - type: "Hana" | "SAP" -> hangi formun gösterileceği
- * - data: obje -> Details tıklanınca gelen item verisi (ör: { host, instance, client, user, ... })
- * - onSave: fn -> kaydetme sonrası parent’a dönen callback
- */
-export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data }) {
-    // --- ortak durumlar ---
+
+
+export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data, page }) {
     const [testing, setTesting] = useState(false);
     const [testResult, setTestResult] = useState(null);
     const [saving, setSaving] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, severity: "info", message: "" });
 
-    // --- SAP form alanları ---
+    const [sourceName, setSourceName] = useState("");
+
+    // MSSQL alanları
+    const [mssqlHost, setMssqlHost] = useState("");
+    const [mssqlIp, setMssqlIp] = useState("");
+    const [mssqlPort, setMssqlPort] = useState("");
+    const [mssqlDatabase, setMssqlDatabase] = useState("");
+    const [mssqlUsername, setMssqlUsername] = useState("");
+    const [mssqlPassword, setMssqlPassword] = useState("");
+    // SAP alanları
     const [sapHost, setSapHost] = useState("");
     const [sapInstance, setSapInstance] = useState("");
-    const [sapClient, setSapClient] = useState("");
+    const [sapSysnr, setSapSysnr] = useState("");
     const [sapLanguage, setSapLanguage] = useState("");
     const [sapUser, setSapUser] = useState("");
     const [sapPassword, setSapPassword] = useState("");
 
-    // --- HANA form alanları ---
-    const [hanaServer, setHanaServer] = useState("");
+    // HANA alanları
+    const [hanaHost, setHanaHost] = useState("");
     const [hanaUsername, setHanaUsername] = useState("");
     const [hanaPassword, setHanaPassword] = useState("");
-    const [hanaDatabase, setHanaDatabase] = useState("");
     const [hanaSchema, setHanaSchema] = useState("");
+    const [hanaPort, setHanaPort] = useState("");
 
-    // Popup açıldığında data varsa alanlara doldur
+    // Popup açıldığında gelen datayı forma doldur
     useEffect(() => {
         if (open && data) {
+            setSourceName(data.name || "");
+
             if (type === "SAP") {
-                setSapHost(data.host || "");
-                setSapInstance(data.instance || "");
-                setSapClient(data.client || "");
-                setSapLanguage(data.language || "");
-                setSapUser(data.user || "");
-                setSapPassword(""); // güvenlik için boş bırak
+                setSapHost(data.details?.host || "");
+                setSapInstance(data.details?.instance || "");
+                setSapSysnr(data.details?.Sysnr || "");
+                setSapLanguage(data.details?.language || "");
+                setSapUser(data.details?.user || "");
+                setSapPassword(data.details?.password || "");
+                // HANA temizle
+                setHanaHost("");
+                setHanaUsername("");
+                setHanaPassword("");
+                setHanaPort("");
+            }
+            else if (type === "MSSQL") {
+                setMssqlHost(data.details?.host || "");
+                setMssqlIp(data.details?.ip || "");
+                setMssqlPort(data.details?.port || "");
+                setMssqlDatabase(data.details?.database || "");
+                setMssqlUsername(data.details?.username || "");
+                setMssqlPassword(data.details?.password || "");
+                // SAP & HANA temizle
+                setSapHost(""); setSapInstance(""); setSapSysnr(""); setSapLanguage(""); setSapUser(""); setSapPassword("");
+                setHanaHost(""); setHanaPort(""); setHanaUsername(""); setHanaPassword(""); setHanaSchema("");
             } else {
-                setHanaServer(data.server || "");
-                setHanaUsername(data.username || "");
-                setHanaPassword(""); // güvenlik için boş bırak
-                setHanaDatabase(data.database || "");
-                setHanaSchema(data.schema || "");
+                setHanaHost(data.details?.host || "");
+                setHanaPort(data.details?.port || "");
+                setHanaUsername(data.details?.username || "");
+                setHanaPassword(data.details?.password || "");
+                setHanaSchema(data.details?.schema || "");
+                // SAP temizle
+                setSapHost("");
+                setSapInstance("");
+                setSapSysnr("");
+                setSapLanguage("");
+                setSapUser("");
+                setSapPassword("");
             }
         }
 
         if (!open) {
-            // popup kapandığında state sıfırla
             setTesting(false);
             setSaving(false);
             setTestResult(null);
         }
     }, [open, data, type]);
 
-    // --- Basit istemci tarafı doğrulama ---
-    const validateSAP = () => sapHost.trim() && sapInstance.trim() && sapClient.trim() && sapUser.trim() && sapPassword.trim();
-    const validateHANA = () => hanaServer.trim() && hanaUsername.trim() && hanaPassword.trim() && hanaDatabase.trim();
+    const validateSAP = () =>
+        sourceName.trim() &&
+        sapHost.trim() &&
+        sapInstance.trim() &&
+        sapSysnr.trim() &&
+        sapUser.trim();
 
-    // --- Test connection (simule edilmiş) ---
+    const validateMSSQL = () =>
+        sourceName.trim() &&
+        mssqlHost.trim() &&
+        mssqlIp.trim() &&
+        mssqlPort.trim() &&
+        mssqlDatabase.trim() &&
+        mssqlUsername.trim();
+
+    const validateHANA = () =>
+        sourceName.trim() &&
+        hanaHost.trim() &&
+        hanaPort.trim() &&
+        hanaUsername.trim();
+
+
+
+    // --- handleTestConnection (düzeltildi) ---
+    // açıklama: doğru endpoint'e POST atar, testing state'i set edilir, response güvenli parse edilir
     const handleTestConnection = async () => {
-        setTestResult(null);
-
-        if (type === "SAP") {
-            if (!validateSAP()) {
-                setSnackbar({ open: true, severity: "warning", message: "Lütfen SAP için tüm zorunlu alanları doldurun." });
-                return;
-            }
-        } else {
-            if (!validateHANA()) {
-                setSnackbar({ open: true, severity: "warning", message: "Lütfen HANA için tüm zorunlu alanları doldurun." });
-                return;
-            }
+        // Validasyon (isteğe bağlı, en azından form alanlarını kontrol et)
+        if (type === "SAP" && !validateSAP()) {
+            setSnackbar({ open: true, severity: "warning", message: "SAP alanlarını doldurun." });
+            return;
+        }
+        if (type === "HANA" && !validateHANA()) {
+            setSnackbar({ open: true, severity: "warning", message: "HANA alanlarını doldurun." });
+            return;
+        }
+        if (type === "MSSQL" && !validateMSSQL()) {
+            setSnackbar({ open: true, severity: "warning", message: "MSSQL alanlarını doldurun." });
+            return;
         }
 
-        setTesting(true);
-        setTestResult(null);
+        setTesting(true); // test sırasında buton disable olsun
 
-        setTimeout(() => {
-            const failCondition =
-                (type === "SAP" && sapUser.toLowerCase().includes("fail")) ||
-                (type === "Hana" && hanaUsername.toLowerCase().includes("fail"));
-
-            if (failCondition) {
-                setTestResult({ success: false, message: "Bağlantı testi başarısız (simülasyon)." });
-                setSnackbar({ open: true, severity: "error", message: "Test bağlantısı başarısız." });
-            } else {
-                setTestResult({ success: true, message: "Bağlantı testi başarılı." });
-                setSnackbar({ open: true, severity: "success", message: "Test bağlantısı başarılı." });
+        // details objesini form alanlarından oluştur (HANA veya SAP'e göre)
+        const details =
+            type === "SAP"
+                ? { user: sapUser, password: sapPassword, host: sapHost, sysnr: sapSysnr }
+                : type === "HANA"
+                    ? { host: hanaHost, port: hanaPort, username: hanaUsername, password: hanaPassword }
+                    : { host: mssqlHost, database: mssqlDatabase, user: mssqlUsername, password: mssqlPassword };
+        try {
+            const token = localStorage.getItem("authToken");
+            if (!token) {
+                setSnackbar({ open: true, severity: "error", message: "Giriş token'ı bulunamadı." });
+                setTesting(false);
+                return;
             }
+
+            const response = await fetch('/api/sources/test', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ details, type }),
+            });
+
+            const text = await response.text(); // önce text al
+            let result = {};
+            try {
+                result = text ? JSON.parse(text) : {};
+            } catch (e) {
+                console.warn('Test connection: parse error, raw text:', text);
+                result = {};
+            }
+
+            if (response.ok) {
+                setTestResult({ success: true, message: result.message || 'Bağlantı testi başarılı.' });
+                setSnackbar({ open: true, severity: 'success', message: result.message || 'Bağlantı testi başarılı.' });
+            } else {
+                setTestResult({ success: false, message: result.message || 'Bağlantı testi başarısız.' });
+                setSnackbar({ open: true, severity: 'error', message: result.message || 'Bağlantı testi başarısız.' });
+            }
+        } catch (err) {
+            console.error('Test connection error (frontend):', err);
+            setSnackbar({ open: true, severity: 'error', message: 'Test sırasında bağlantı hatası.' });
+        } finally {
             setTesting(false);
-        }, 1200);
+        }
     };
 
-    // --- Save işlemi (API'ye kaydet) ---
+
+
+
+
+
+
+
+
+    // 🔑 Kaydetme (Yeni ekle veya güncelle)
+    // --- handleSave (güvenli JSON parse ve hata loglama ile) ---
     const handleSave = async () => {
-        if (type === "SAP" && !validateSAP()) {
-            setSnackbar({ open: true, severity: "warning", message: "SAP alanları eksik. Kaydedinmek için doldurun." });
+        if (!sourceName.trim()) {
+            setSnackbar({ open: true, severity: "warning", message: "Name alanı boş bırakılamaz." });
             return;
         }
-        if (type === "Hana" && !validateHANA()) {
-            setSnackbar({ open: true, severity: "warning", message: "HANA alanları eksik. Kaydedinmek için doldurun." });
-            return;
-        }
+
+        const details =
+            type === "SAP"
+                ? { host: sapHost, instance: sapInstance, Sysnr: sapSysnr, language: sapLanguage, user: sapUser, password: sapPassword }
+                : type === "HANA"
+                    ? { host: hanaHost, port: hanaPort, username: hanaUsername, schema: hanaSchema, password: hanaPassword }
+                    : { host: mssqlHost, ip: mssqlIp, port: mssqlPort, database: mssqlDatabase, username: mssqlUsername, password: mssqlPassword };
+        const payload = { name: sourceName, type: type.toUpperCase(), details };
 
         setSaving(true);
 
         try {
-            const details = type === "SAP" 
-                ? { host: sapHost, instance: sapInstance, client: sapClient, language: sapLanguage, user: sapUser }
-                : { server: hanaServer, username: hanaUsername, database: hanaDatabase, schema: hanaSchema };
+            const token = localStorage.getItem("authToken");
+            if (!token) {
+                setSnackbar({ open: true, severity: "error", message: "Giriş token'ı bulunamadı." });
+                setSaving(false);
+                return;
+            }
 
-            const sourceName = prompt("Source için bir isim girin:") || `${type}_${Date.now()}`;
+            const method = data?.id ? "PUT" : "POST";
 
-            const token = localStorage.getItem('authToken');
-            const response = await fetch('/api/sources', {
-                method: 'POST',
+            const baseUrl = page === "sources" ? "/api/sources" : "/api/destination";
+            const url = data?.id ? `${baseUrl}/${data.id}` : baseUrl;
+
+            const response = await fetch(url, {
+                method,
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify({
-                    name: sourceName,
-                    type: type.toUpperCase(),
-                    details: details
-                })
+                body: JSON.stringify(payload),
             });
 
-            const result = await response.json();
+            const text = await response.text();
+            let result = {};
+            try {
+                result = text ? JSON.parse(text) : {};
+            } catch (e) {
+                console.warn('Save: JSON parse failed, raw response:', text);
+                result = {};
+            }
 
             if (response.ok) {
-                setSnackbar({ open: true, severity: "success", message: "Source başarıyla kaydedildi!" });
-                
+                setSnackbar({ open: true, severity: "success", message: data?.id ? "Source güncellendi." : "Source eklendi." });
                 if (typeof onSave === "function") {
-                    onSave({ ...details, type: type, name: sourceName, id: result.sourceId });
+                    onSave({ ...details, type, name: sourceName, id: data?.id || result.sourceId });
                 }
-                
                 setOpen(false);
             } else {
                 setSnackbar({ open: true, severity: "error", message: result.message || "Kaydetme hatası." });
+                console.error('Save failed, status:', response.status, 'body:', result);
             }
+            setSourceName("");
+            switch (type) {
+                case "HANA":
+                    setHanaHost(""); setHanaPort(""); setHanaUsername(""); setHanaPassword(""); setHanaSchema("");
+                    break;
+
+                case "MSSQL":
+                    setMssqlHost(""); setMssqlDatabase(""); setMssqlIp(""); setMssqlPassword(""); setMssqlPort(""); setMssqlUsername("");
+                    break;
+
+                case "SAP":
+                    setSapHost("");
+                    setSapInstance("");
+                    setSapSysnr("");
+                    setSapLanguage("");
+                    setSapUser("");
+                    setSapPassword("");
+
+                    break;
+
+                default:
+                    throw new Error(`Desteklenmeyen veritabanı tipi: ${type}`);
+            }
+
         } catch (err) {
-            console.error('Save error:', err);
-            setSnackbar({ open: true, severity: "error", message: "Bağlantı hatası oluştu." });
+            console.error("Save error (frontend):", err);
+            setSnackbar({ open: true, severity: "error", message: "Bağlantı hatası." });
         } finally {
             setSaving(false);
         }
@@ -170,116 +289,199 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
     const handleCancel = () => setOpen(false);
     const handleCloseSnackbar = () => setSnackbar(prev => ({ ...prev, open: false }));
 
-    // --- Render SAP form ---
-    const renderSAPForm = () => (
-        <Box component="form" noValidate autoComplete="off" sx={{ mt: 1 }}>
-            <Grid container spacing={2}>
-                <Grid item xs={12} sm={8}>
-                    <TextField fullWidth label="Host" value={sapHost} onChange={(e) => setSapHost(e.target.value)} required />
-                </Grid>
-                <Grid item xs={6} sm={4}>
-                    <TextField fullWidth label="Instance No" value={sapInstance} onChange={(e) => setSapInstance(e.target.value)} required />
-                </Grid>
-                <Grid item xs={6} sm={4}>
-                    <TextField fullWidth label="Client" value={sapClient} onChange={(e) => setSapClient(e.target.value)} required />
-                </Grid>
-                <Grid item xs={6} sm={4}>
-                    <TextField fullWidth label="Language" value={sapLanguage} onChange={(e) => setSapLanguage(e.target.value)} />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                    <TextField fullWidth label="User" value={sapUser} onChange={(e) => setSapUser(e.target.value)} required />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                    <TextField fullWidth type="password" label="Password" value={sapPassword} onChange={(e) => setSapPassword(e.target.value)} required />
-                </Grid>
-            </Grid>
-        </Box>
-    );
+    const boxBorderStyle = {
+        border: "2px solid rgba(35, 92, 156, 0.9)",
+        borderRadius: 2,
+        p: 2,
+        mb: 2,
+        backgroundColor: "#fff",
+    };
 
-    // --- Render HANA form ---
-    const renderHanaForm = () => (
-        <Box component="form" noValidate autoComplete="off" sx={{ mt: 1 }}>
-            <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                    <TextField fullWidth label="Server" value={hanaServer} onChange={(e) => setHanaServer(e.target.value)} required />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                    <TextField fullWidth label="Database" value={hanaDatabase} onChange={(e) => setHanaDatabase(e.target.value)} required />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                    <TextField fullWidth label="Username" value={hanaUsername} onChange={(e) => setHanaUsername(e.target.value)} required />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                    <TextField fullWidth type="password" label="Password" value={hanaPassword} onChange={(e) => setHanaPassword(e.target.value)} required />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                    <TextField fullWidth label="Schema (opsiyonel)" value={hanaSchema} onChange={(e) => setHanaSchema(e.target.value)} />
-                </Grid>
-            </Grid>
-        </Box>
-    );
+    const bigButtonSx = {
+        minWidth: 150,
+        height: 44,
+        borderRadius: "10px",
+        boxShadow: "none",
+        textTransform: "none",
+        fontSize: 15,
+        fontWeight: 500,
+    };
+
+    const primaryBlue = "#2f67b3";
 
     return (
         <>
-            <Dialog open={open} onClose={handleCancel} maxWidth="md" fullWidth>
-                <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <Typography variant="h6">{type === "SAP" ? "SAP Bağlantı Ayarları" : "HANA Bağlantı Ayarları"}</Typography>
-                    <IconButton onClick={handleCancel} size="small" aria-label="close">
+            <Dialog open={open} onClose={handleCancel} maxWidth="sm" fullWidth PaperProps={{ sx: { mx: 2, mt: 1, p: 3, borderRadius: 3, boxShadow: 3 } }}>
+                {/* Başlık */}
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+                    <Typography variant="h4" component="div" sx={{ fontWeight: 700 }}>
+                        Source ({data?.id ? "Edit" : "New"} {type})
+                    </Typography>
+                    <IconButton onClick={handleCancel} size="small">
                         <CloseIcon />
                     </IconButton>
-                </DialogTitle>
+                </Box>
 
-                <DialogContent dividers>
-                    <Typography variant="body2" sx={{ mb: 2, color: "text.secondary" }}>
-                        {type === "SAP"
-                            ? "SAP sistemine bağlanmak için gerekli bilgileri giriniz."
-                            : "HANA veritabanına bağlanmak için gerekli bilgileri giriniz."}
-                    </Typography>
+                {/* Name */}
+                <Box sx={{ ...boxBorderStyle }}>
+                    <Typography sx={{ mb: 1, fontWeight: 500 }}>Name:</Typography>
+                    <TextField fullWidth size="small" value={sourceName} onChange={(e) => setSourceName(e.target.value)} />
+                </Box>
 
-                    {type === "SAP" ? renderSAPForm() : renderHanaForm()}
+                {/* SAP veya HANA form */}
 
-                    <Box sx={{ mt: 2 }}>
-                        {testing ? (
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                <CircularProgress size={20} />
-                                <Typography variant="body2">Bağlantı testi yapılıyor...</Typography>
-                            </Box>
-                        ) : testResult ? (
-                            <Alert severity={testResult.success ? "success" : "error"} sx={{ mt: 1 }}>
-                                {testResult.message}
-                            </Alert>
-                        ) : (
-                            <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                                Bağlantı testi yapılmadı.
-                            </Typography>
-                        )}
-                    </Box>
-                </DialogContent>
+                {/* SAP / HANA / MSSQL Formları */}
+                {type === "SAP" ? (
+                    <>
+                        <Typography sx={{ mb: 1, fontWeight: 600 }}>System</Typography>
+                        <Box sx={{ ...boxBorderStyle }}>
+                            <Grid container spacing={2}>
+                                <Grid item xs={12}>
+                                    <Typography>Host:</Typography>
+                                    <TextField fullWidth size="small" value={sapHost} onChange={(e) => setSapHost(e.target.value)} />
+                                </Grid>
+                                <Grid item xs={12}>
+                                    <Typography>Instance:</Typography>
+                                    <TextField fullWidth size="small" value={sapInstance} onChange={(e) => setSapInstance(e.target.value)} />
+                                </Grid>
+                                <Grid item xs={6}>
+                                    <Typography>Sysnr:</Typography>
+                                    <TextField fullWidth size="small" value={sapSysnr} onChange={(e) => setSapSysnr(e.target.value)} />
+                                </Grid>
+                                <Grid item xs={6}>
+                                    <Typography>Language:</Typography>
+                                    <TextField
+                                        select                 // TextField’i combobox gibi yapar
+                                        fullWidth
+                                        size="small"
+                                        value={sapLanguage}    // seçili değer state’den gelir
+                                        onChange={(e) => setSapLanguage(e.target.value)} // seçilen değeri state’e yaz
+                                    >
+                                        <MenuItem value="EN">English</MenuItem>
+                                        <MenuItem value="TR">Turkish</MenuItem>
+                                    </TextField>
+                                </Grid>
+                            </Grid>
+                        </Box>
+                        <Typography sx={{ mb: 1, fontWeight: 600 }}>Authentication</Typography>
+                        <Box sx={{ ...boxBorderStyle }}>
+                            <Grid container spacing={2}>
+                                <Grid item xs={6}>
+                                    <Typography>User:</Typography>
+                                    <TextField fullWidth size="small" value={sapUser} onChange={(e) => setSapUser(e.target.value)} />
+                                </Grid>
+                                <Grid item xs={6}>
+                                    <Typography>Password:</Typography>
+                                    <TextField type="password" fullWidth size="small" value={sapPassword} onChange={(e) => setSapPassword(e.target.value)} />
+                                </Grid>
+                            </Grid>
+                        </Box>
+                    </>
+                ) : type === "HANA" ? (
+                    <>
+                        <Typography sx={{ mb: 1, fontWeight: 600 }}>System</Typography>
+                        <Box sx={{ ...boxBorderStyle }}>
+                            <Grid container spacing={2}>
+                                <Grid item xs={12}>
+                                    <Typography>Host:</Typography>
+                                    <TextField fullWidth size="small" value={hanaHost} onChange={(e) => setHanaHost(e.target.value)} />
+                                </Grid>
+                                <Grid item xs={12}>
+                                    <Typography>Port:</Typography>
+                                    <TextField fullWidth size="small" value={hanaPort} onChange={(e) => setHanaPort(e.target.value)} />
+                                </Grid>
+                            </Grid>
+                        </Box>
+                        <Typography sx={{ mb: 1, fontWeight: 600 }}>Authentication</Typography>
+                        <Box sx={{ ...boxBorderStyle }}>
+                            <Grid container spacing={2}>
+                                <Grid item xs={6}>
+                                    <Typography>Username:</Typography>
+                                    <TextField fullWidth size="small" value={hanaUsername} onChange={(e) => setHanaUsername(e.target.value)} />
+                                </Grid>
+                                <Grid item xs={6}>
+                                    <Typography>Password:</Typography>
+                                    <TextField type="password" fullWidth size="small" value={hanaPassword} onChange={(e) => setHanaPassword(e.target.value)} />
+                                </Grid>
+                            </Grid>
+                        </Box>
+                    </>
+                ) : (
+                    // MSSQL
+                    <>
+                        <Typography sx={{ mb: 1, fontWeight: 600 }}>System</Typography>
+                        <Box sx={{ ...boxBorderStyle }}>
+                            <Grid container spacing={2}>
+                                <Grid item xs={12}>
+                                    <Typography>Host:</Typography>
+                                    <TextField fullWidth size="small" value={mssqlHost} onChange={(e) => setMssqlHost(e.target.value)} />
+                                </Grid>
+                                <Grid item xs={12}>
+                                    <Typography>IP:</Typography>
+                                    <TextField fullWidth size="small" value={mssqlIp} onChange={(e) => setMssqlIp(e.target.value)} />
+                                </Grid>
+                                <Grid item xs={6}>
+                                    <Typography>Port:</Typography>
+                                    <TextField fullWidth size="small" value={mssqlPort} onChange={(e) => setMssqlPort(e.target.value)} />
+                                </Grid>
+                                <Grid item xs={6}>
+                                    <Typography>Database:</Typography>
+                                    <TextField fullWidth size="small" value={mssqlDatabase} onChange={(e) => setMssqlDatabase(e.target.value)} />
+                                </Grid>
+                            </Grid>
+                        </Box>
 
-                <DialogActions sx={{ px: 3, py: 2 }}>
-                    <Box sx={{ flex: 1 }}>
-                        <Button
-                            variant="outlined"
-                            onClick={handleTestConnection}
-                            disabled={testing || saving}
-                            startIcon={testing ? <CircularProgress size={16} /> : null}
-                        >
-                            Test Connection
-                        </Button>
-                    </Box>
-                    <Box>
-                        <Button onClick={handleCancel} disabled={testing || saving} sx={{ mr: 1 }}>
-                            Cancel
-                        </Button>
-                        <Button variant="contained" onClick={handleSave} disabled={saving}>
+                        <Typography sx={{ mb: 1, fontWeight: 600 }}>Authentication</Typography>
+                        <Box sx={{ ...boxBorderStyle }}>
+                            <Grid container spacing={2}>
+                                <Grid item xs={6}>
+                                    <Typography>Username:</Typography>
+                                    <TextField fullWidth size="small" value={mssqlUsername} onChange={(e) => setMssqlUsername(e.target.value)} />
+                                </Grid>
+                                <Grid item xs={6}>
+                                    <Typography>Password:</Typography>
+                                    <TextField type="password" fullWidth size="small" value={mssqlPassword} onChange={(e) => setMssqlPassword(e.target.value)} />
+                                </Grid>
+                            </Grid>
+                        </Box>
+                    </>
+                )}
+
+
+                {/* Test Sonucu */}
+                <Box sx={{ mt: 2 }}>
+                    {/* {testing ? (
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 100 }}>
+                            <CircularProgress size={18} />
+                            <Typography>Testing connection...</Typography>
+                        </Box>
+                    ) : testResult ? (
+                        <Alert severity={testResult.success ? "success" : "error"}>{testResult.message}</Alert>
+                    ) : (
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                            Test yapılmadı
+                        </Typography>
+                    )} */}
+                </Box>
+
+                {/* Butonlar */}
+                <Box sx={{ display: "flex", justifyContent: "space-between", mt: 2 }}>
+                    <Button variant="contained" onClick={handleTestConnection} disabled={testing || saving} sx={{ ...bigButtonSx, backgroundColor: primaryBlue }}>
+                        {testing ? <CircularProgress size={20} color="inherit" /> : "Test Connection"}
+                    </Button>
+                    <Box sx={{ display: "flex", gap: 2 }}>
+                        <Button variant="contained" onClick={handleSave} disabled={saving} sx={{ ...bigButtonSx, backgroundColor: primaryBlue }}>
                             {saving ? <CircularProgress size={18} color="inherit" /> : "Save"}
                         </Button>
+                        <Button variant="contained" onClick={handleCancel} disabled={saving || testing} sx={{ ...bigButtonSx, backgroundColor: primaryBlue }}>
+                            Cancel
+                        </Button>
                     </Box>
-                </DialogActions>
+                </Box>
             </Dialog>
 
-            <Snackbar open={snackbar.open} autoHideDuration={3500} onClose={handleCloseSnackbar}>
-                <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: "100%" }}>
+            <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={handleCloseSnackbar}>
+                <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
                     {snackbar.message}
                 </Alert>
             </Snackbar>

@@ -36,7 +36,7 @@ const DestinationList = () => {
   useEffect(() => {
     const fetchSources = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/sources");
+        const res = await fetch("http://localhost:3001/api/sources");
         const data = await res.json();
         setSources(data);
       } catch (error) {
@@ -69,7 +69,7 @@ const DestinationList = () => {
   const handleDeleteConfirmed = async () => {
     if (!deleteTarget) return;
     try {
-      await fetch(`http://localhost:5000/api/sources/${deleteTarget.id}`, {
+      await fetch(`http://localhost:3001/api/sources/${deleteTarget.id}`, {
         method: "DELETE",
       });
       setSources((prev) => prev.filter((s) => s.id !== deleteTarget.id));
