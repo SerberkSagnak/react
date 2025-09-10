@@ -14,6 +14,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.join(__dirname, '../.env') }); 
+
+const app = express();
+const port = process.env.PORT || 3001;
+
 // dist klasörünü serve et
 app.use(express.static(path.join(__dirname, '../dist')));
 
@@ -21,11 +25,6 @@ app.use(express.static(path.join(__dirname, '../dist')));
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
-
-
-
-const app = express();
-const port = process.env.PORT || 3001;
 
 // --- Veritabanı Kurulumu ---
 const dbConfig = {
