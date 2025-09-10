@@ -17,7 +17,7 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 
 
 const app = express();
-const PORT = 3001;
+const port = process.env.PORT || 3001;
 
 // --- Veritabanı Kurulumu ---
 const dbConfig = {
@@ -516,6 +516,6 @@ app.get('/api/sources/:id', requireAuth, async (req, res) => {
 });
 
 // --- Sunucuyu Dinlemeye Başla ---
-app.listen(PORT, () => {
-  console.log(`🚀 Backend sunucusu http://localhost:${PORT} adresinde çalışıyor`);
+app.listen(port, () => {
+  console.log(`🚀 Backend sunucusu http://localhost:${port} adresinde çalışıyor`);
 });
