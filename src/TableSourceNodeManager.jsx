@@ -23,15 +23,15 @@ const TableSourceNodeManager = () => {
     <Paper elevation={3} sx={{ p: 2 }}>
       <Typography variant="h6">TableSource Node Yöneticisi</Typography>
       <Typography variant="body2" color="text.secondary" gutterBottom>
-        Bu bölüm TableSource düğümünü ve onun yapılandırmasını yönetir.
+        Unit
       </Typography>
 
       <Button variant="contained" color="secondary" onClick={() => setIsPopupOpen(true)}>
-        TableSource Düğümünü Yapılandır
+       TableSource Configure
       </Button>
 
       <Box sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-        <Typography variant="subtitle2">Mevcut Kayıtlı Veri:</Typography>
+        <Typography variant="subtitle2">Saved Items</Typography>
         <pre>{JSON.stringify(tableSourceNodeData, null, 2)}</pre>
       </Box>
 

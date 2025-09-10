@@ -22,11 +22,11 @@ const BapiNodeManager = () => {
     <Paper elevation={3} sx={{ p: 2, mb: 3 }}>
       <Typography variant="h6">BAPI Node Yöneticisi</Typography>
       <Typography variant="body2" color="text.secondary" gutterBottom>
-        Bu bölüm BAPI düğümünü ve onun yapılandırmasını yönetir.
+        Bapi
       </Typography>
 
       <Button variant="contained" onClick={() => setIsPopupOpen(true)}>
-        BAPI Düğümünü Yapılandır
+        Bapi Configure
       </Button>
       
       <Box sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>

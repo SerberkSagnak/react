@@ -20,9 +20,8 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
-
 const app = express();
-const PORT = 3001;
+const port = process.env.PORT || 3001;
 
 // --- Veritabanı Kurulumu --- MSSQL MAİN DB
 const dbConfig = {
@@ -66,7 +65,63 @@ const requireAuth = (req, res, next) => {
 // --- KULLANICI YÖNETİMİ API ENDPOINT'LERİ ---
 
 // [POST] /api/register 
+<<<<<<< HEAD
 app.post('/api/register', async (req, res) => { /* ... önceki kodla aynı ... */ });
+=======
+app.post('/api/register', async (req, res) => {
+  const { username, name, surname, mail, password } = req.body;
+  
+  if (!username || !name || !surname || !mail || !password) {
+    return res.status(400).json({ message: 'Tüm zorunlu alanları doldurun.' });
+  }
+
+  try {
+    const pool = await poolPromise;
+    const transaction = new sql.Transaction(pool);
+    
+    await transaction.begin();
+    
+    try {
+      // 1. Kullanıcı adı kontrolü
+      const userCheck = await transaction.request()
+        .input('username', sql.NVarChar, username)
+        .query('SELECT USER_NAME FROM [mosuser].[LOGIN_INFO] WHERE USER_NAME = @username');
+      
+      if (userCheck.recordset.length > 0) {
+        await transaction.rollback();
+        return res.status(400).json({ message: 'Bu kullanıcı adı zaten kullanılıyor.' });
+      }
+
+      // 2. Users tablosuna kaydet
+      const hashedPassword = await bcryptjs.hash(password, 10);
+      const userResult = await transaction.request()
+        .input('username', sql.NVarChar, name) // USERNAME kolonuna isim
+        .input('surname', sql.NVarChar, surname)
+        .input('mail', sql.NVarChar, mail)
+        .query('INSERT INTO [mosuser].[USERS] (USERNAME, SURNAME, MAIL, REC_DATE, STATUS) OUTPUT INSERTED.ID VALUES (@username, @surname, @mail, GETDATE(), 1)');
+      
+      const userId = userResult.recordset[0].ID;
+
+      // 3. LOGIN_INFO tablosuna kaydet
+      await transaction.request()
+        .input('userId', sql.Int, userId)
+        .input('username', sql.NVarChar, username)
+        .input('password', sql.NVarChar, hashedPassword)
+        .query('INSERT INTO [mosuser].[LOGIN_INFO] (USER_ID, USER_NAME, PASSWORD) VALUES (@userId, @username, @password)');
+
+      await transaction.commit();
+      res.status(201).json({ message: 'Kullanıcı başarıyla kaydedildi.' });
+      
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  } catch (err) {
+    console.error('Kayıt hatası:', err);
+    res.status(500).json({ message: 'Kayıt sırasında bir hata oluştu.' });
+  }
+});
+>>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
 
 // [POST] /api/login 
 app.post('/api/login', async (req, res) => {
@@ -74,7 +129,7 @@ app.post('/api/login', async (req, res) => {
   if (!username || !password) return res.status(400).json({ message: 'Kullanıcı adı ve şifre gereklidir.' });
   try {
     const pool = await poolPromise;
-    const result = await pool.request().input('user_name', sql.NVarChar, username).query('SELECT u.ID as UserID, li.PASSWORD FROM [mosuser].[LOGIN_INFO] li JOIN [mosuser].[Users] u ON li.USER_ID = u.ID WHERE li.USER_NAME = @user_name');
+    const result = await pool.request().input('user_name', sql.NVarChar, username).query('SELECT u.ID as UserID, li.PASSWORD FROM [mosuser].[LOGIN_INFO] li JOIN [mosuser].[USERS] u ON li.USER_ID = u.ID WHERE li.USER_NAME = @user_name');
     if (result.recordset.length === 0) return res.status(401).json({ message: 'Geçersiz kullanıcı adı veya şifre.' });
 
     const user = result.recordset[0];
@@ -120,15 +175,30 @@ app.get('/api/templates', requireAuth, async (req, res) => {
 app.get('/api/templates/:id', requireAuth, async (req, res) => {
   const userId = req.user.id;
   const templateId = req.params.id;
+  console.log(`DEBUG - Template ${templateId} istendi, kullanıcı: ${userId}`);
+  
   try {
     const pool = await poolPromise;
-    const result = await pool.request().input('userId', sql.Int, userId).input('templateId', sql.Int, templateId).query('SELECT JSON FROM [mosuser].[TEMPLATES] WHERE ID = @templateId AND USER_ID = @userId');
+    
+    // Önce template'in varlığını kontrol et
+    const checkResult = await pool.request()
+      .input('templateId', sql.Int, templateId)
+      .query('SELECT ID, USER_ID, TEMPLATE_NAME FROM [mosuser].[TEMPLATES] WHERE ID = @templateId');
+    
+    console.log('DEBUG - Template check result:', checkResult.recordset);
+    
+    const result = await pool.request()
+      .input('userId', sql.Int, userId)
+      .input('templateId', sql.Int, templateId)
+      .query('SELECT JSON FROM [mosuser].[TEMPLATES] WHERE ID = @templateId AND USER_ID = @userId');
+    
     if (result.recordset.length > 0) {
       res.status(200).json(JSON.parse(result.recordset[0].JSON));
     } else {
       res.status(404).json({ message: 'Şablon bulunamadı veya bu şablona erişim yetkiniz yok.' });
     }
   } catch (err) {
+    console.error('Template getirme hatası:', err);
     res.status(500).json({ message: 'Şablon yüklenemedi.' });
   }
 });
@@ -139,17 +209,191 @@ app.post('/api/templates', requireAuth, async (req, res) => {
   if (!templateName || !jsonData) {
     return res.status(400).json({ message: 'Şablon adı ve akış verisi gereklidir.' });
   }
-  const jsonDataString = JSON.stringify(jsonData);
+  
+  // İsim benzersizlik kontrolü
   try {
     const pool = await poolPromise;
-    await pool.request()
-      .input('userId', sql.Int, userId).input('templateName', sql.NVarChar, templateName).input('json', sql.NVarChar, jsonDataString)
-      .query('INSERT INTO [mosuser].[TEMPLATES] (USER_ID, TEMPLATE_NAME, JSON) VALUES (@userId, @templateName, @json)');
-    res.status(201).json({ message: 'Akış başarıyla kaydedildi.' });
+    const nameCheck = await pool.request()
+      .input('userId', sql.Int, userId)
+      .input('templateName', sql.NVarChar, templateName)
+      .query('SELECT ID FROM [mosuser].[TEMPLATES] WHERE USER_ID = @userId AND TEMPLATE_NAME = @templateName');
+    
+    if (nameCheck.recordset.length > 0) {
+      return res.status(400).json({ message: 'Bu isimde bir akış zaten mevcut.' });
+    }
+
+    const jsonDataString = JSON.stringify(jsonData);
+    const result = await pool.request()
+      .input('userId', sql.Int, userId)
+      .input('templateName', sql.NVarChar, templateName)
+      .input('json', sql.NVarChar, jsonDataString)
+      .query('INSERT INTO [mosuser].[TEMPLATES] (USER_ID, TEMPLATE_NAME, JSON) OUTPUT INSERTED.ID VALUES (@userId, @templateName, @json)');
+    
+    res.status(201).json({ message: 'Akış başarıyla kaydedildi.', templateId: result.recordset[0].ID });
   } catch (err) {
+    console.error('Template kaydetme hatası:', err);
     res.status(500).json({ message: 'Akış kaydedilirken bir hata oluştu.' });
   }
 });
+
+// [PUT] /api/templates/:id - Template güncelle
+app.put('/api/templates/:id', requireAuth, async (req, res) => {
+  const userId = req.user.id;
+  const templateId = req.params.id;
+  const { templateName, jsonData } = req.body;
+  
+  if (!templateName || !jsonData) {
+    return res.status(400).json({ message: 'Şablon adı ve akış verisi gereklidir.' });
+  }
+
+  try {
+    const pool = await poolPromise;
+    
+    // Template'in kullanıcıya ait olup olmadığını kontrol et
+    const ownerCheck = await pool.request()
+      .input('userId', sql.Int, userId)
+      .input('templateId', sql.Int, templateId)
+      .query('SELECT ID FROM [mosuser].[TEMPLATES] WHERE ID = @templateId AND USER_ID = @userId');
+    
+    if (ownerCheck.recordset.length === 0) {
+      return res.status(404).json({ message: 'Template bulunamadı veya erişim yetkiniz yok.' });
+    }
+
+    // İsim benzersizlik kontrolü (aynı ID hariç)
+    const nameCheck = await pool.request()
+      .input('userId', sql.Int, userId)
+      .input('templateName', sql.NVarChar, templateName)
+      .input('templateId', sql.Int, templateId)
+      .query('SELECT ID FROM [mosuser].[TEMPLATES] WHERE USER_ID = @userId AND TEMPLATE_NAME = @templateName AND ID != @templateId');
+    
+    if (nameCheck.recordset.length > 0) {
+      return res.status(400).json({ message: 'Bu isimde başka bir akış zaten mevcut.' });
+    }
+
+    const jsonDataString = JSON.stringify(jsonData);
+    await pool.request()
+      .input('userId', sql.Int, userId)
+      .input('templateId', sql.Int, templateId)
+      .input('templateName', sql.NVarChar, templateName)
+      .input('json', sql.NVarChar, jsonDataString)
+      .query('UPDATE [mosuser].[TEMPLATES] SET TEMPLATE_NAME = @templateName, JSON = @json WHERE ID = @templateId AND USER_ID = @userId');
+
+    res.status(200).json({ message: 'Akış başarıyla güncellendi.' });
+  } catch (err) {
+    console.error('Template güncelleme hatası:', err);
+    res.status(500).json({ message: 'Akış güncellenirken bir hata oluştu.' });
+  }
+});
+
+// --- FLOW EXECUTION ENDPOINT'LERİ ---
+
+// [POST] /api/templates/:id/execute - Template akışını çalıştır
+app.post('/api/templates/:id/execute', requireAuth, async (req, res) => {
+  const userId = req.user.id;
+  const templateId = req.params.id;
+  
+  try {
+    const pool = await poolPromise;
+    
+    // Template'i ve JSON verisini getir
+    const templateResult = await pool.request()
+      .input('userId', sql.Int, userId)
+      .input('templateId', sql.Int, templateId)
+      .query('SELECT TEMPLATE_NAME, JSON FROM [mosuser].[TEMPLATES] WHERE ID = @templateId AND USER_ID = @userId');
+    
+    if (templateResult.recordset.length === 0) {
+      return res.status(404).json({ message: 'Template bulunamadı veya erişim yetkiniz yok.' });
+    }
+
+    const templateData = JSON.parse(templateResult.recordset[0].JSON);
+    const templateName = templateResult.recordset[0].TEMPLATE_NAME;
+    
+    console.log(`🚀 "${templateName}" akışı çalıştırılıyor...`);
+    
+    // Node'ları sırala ve çalıştır
+    const executionResult = await executeFlowNodes(templateData.nodes, userId, pool);
+    
+    res.status(200).json({
+      message: 'Akış başarıyla çalıştırıldı.',
+      templateName: templateName,
+      result: executionResult
+    });
+    
+  } catch (err) {
+    console.error('Flow execution hatası:', err);
+    res.status(500).json({ message: 'Akış çalıştırılırken hata oluştu.' });
+  }
+});
+
+// Flow node'larını işleyen ana fonksiyon
+async function executeFlowNodes(nodes, userId, pool) {
+  const results = [];
+  
+  for (const node of nodes) {
+    console.log(`📋 Node işleniyor: ${node.type} - ${node.id}`);
+    
+    try {
+      let nodeResult;
+      
+      switch (node.type) {
+        case 'bapi':
+          nodeResult = await processBapiNode(node, userId, pool);
+          break;
+        case 'query': 
+          nodeResult = await processQueryNode(node, userId, pool);
+          break;
+        case 'file':
+          nodeResult = await processFileNode(node, userId, pool);
+          break;
+        default:
+          nodeResult = { type: node.type, status: 'skipped', message: 'Desteklenmeyen node tipi' };
+      }
+      
+      results.push({ nodeId: node.id, ...nodeResult });
+    } catch (err) {
+      console.error(`Node ${node.id} işlenirken hata:`, err);
+      results.push({ 
+        nodeId: node.id, 
+        status: 'error', 
+        message: err.message 
+      });
+    }
+  }
+  
+  return results;
+}
+
+// BAPI node işleme fonksiyonu
+async function processBapiNode(node, userId, pool) {
+  const config = node.data || {};
+  
+  return {
+    type: 'bapi',
+    status: 'success',
+    message: `BAPI ${config.functionName || 'unknown'} çağrıldı`,
+    data: { rows: 0 } // Simülasyon
+  };
+}
+
+// Query node işleme fonksiyonu  
+async function processQueryNode(node, userId, pool) {
+  return {
+    type: 'query',
+    status: 'success', 
+    message: 'Query başarıyla çalıştırıldı',
+    data: { rows: 0 }
+  };
+}
+
+// File node işleme fonksiyonu
+async function processFileNode(node, userId, pool) {
+  return {
+    type: 'file',
+    status: 'success',
+    message: 'Dosya başarıyla oluşturuldu', 
+    data: { path: '/tmp/output.xlsx' }
+  };
+}
 
 
 // --- SOURCES YÖNETİMİ ENDPOINT'LERİ ---
@@ -157,11 +401,25 @@ app.post('/api/templates', requireAuth, async (req, res) => {
 // [GET] /api/sources - Kullanıcının kaydettiği source'ları listele
 app.get('/api/sources', requireAuth, async (req, res) => {
   const userId = req.user.id;
+  const { type } = req.query; // Query parameter ile type filtresi
+  
   try {
     const pool = await poolPromise;
-    const result = await pool.request()
-      .input('userId', sql.Int, userId)
-      .query('SELECT ID, TYPE, NAME FROM [mosuser].[SOURCE] WHERE USER_ID = @userId ORDER BY ID DESC');
+    let query = 'SELECT ID, TYPE, NAME FROM [mosuser].[SOURCE] WHERE USER_ID = @userId';
+    
+    if (type) {
+      query += ' AND TYPE = @type';
+    }
+    
+    query += ' ORDER BY ID DESC';
+    
+    const request = pool.request().input('userId', sql.Int, userId);
+    
+    if (type) {
+      request.input('type', sql.NVarChar, type);
+    }
+    
+    const result = await request.query(query);
     res.status(200).json(result.recordset);
   } catch (err) {
     console.error('Sources listesi getirme hatası:', err);
@@ -528,6 +786,6 @@ app.get('/api/destination/:id', requireAuth, async (req, res) => {
 
 
 // --- Sunucuyu Dinlemeye Başla ---
-app.listen(PORT, () => {
-  console.log(`🚀 Backend sunucusu http://localhost:${PORT} adresinde çalışıyor`);
+app.listen(port,'0.0.0.0', () => {
+  console.log(`🚀 Backend sunucusu http://localhost:${port} adresinde çalışıyor`);
 });

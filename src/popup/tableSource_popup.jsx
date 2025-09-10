@@ -5,8 +5,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField,
   FormControl, InputLabel, Select, MenuItem, Box, Typography, Divider,
+<<<<<<< HEAD
   IconButton, CircularProgress, Alert, FormGroup, FormControlLabel, Checkbox,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper
+=======
+  IconButton, CircularProgress, Alert, Card, CardContent, Chip
+>>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 
@@ -22,6 +26,7 @@ const TableSourcePopup = ({ open, onClose, onSave, initialData = {} }) => {
 
   const [formData, setFormData] = useState({});
   const [dbConnections, setDbConnections] = useState([]);
+<<<<<<< HEAD
   const [schemas, setSchemas] = useState([]);
   const [tablesAndColumns, setTablesAndColumns] = useState({});
   const [selectedTable, setSelectedTable] = useState('');
@@ -29,9 +34,16 @@ const TableSourcePopup = ({ open, onClose, onSave, initialData = {} }) => {
   const [tableData, setTableData] = useState([]);
   const [loading, setLoading] = useState({ connections: false, schemas: false, tables: false, data: false });
   const [error, setError] = useState({ connections: '', schemas: '', tables: '', data: '' });
+=======
+  const [selectedSourceDetails, setSelectedSourceDetails] = useState({});
+  const [configFields, setConfigFields] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+>>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
 
   const selectedConnection = dbConnections.find(c => c.id === Number(formData.connectionId));
 
+<<<<<<< HEAD
   const resetDependentStates = useCallback(() => {
     setSchemas([]);
     setTablesAndColumns({});
@@ -51,6 +63,75 @@ const TableSourcePopup = ({ open, onClose, onSave, initialData = {} }) => {
       setSelectedTable(initialData.tableName || '');
       setSelectedColumns(initialData.selectedColumns?.reduce((acc, col) => ({...acc, [col]: true}), {}) || {});
       resetDependentStates();
+=======
+  // MSSQL source'ları API'den yükle
+  useEffect(() => {
+    if (open) {
+      setIsLoading(true);
+      setError('');
+      
+      const fetchMssqlSources = async () => {
+        try {
+          const token = localStorage.getItem('authToken');
+          const response = await fetch('/api/sources?type=MSSQL', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          
+          if (response.ok) {
+            const sources = await response.json();
+            setDbConnections(sources.map(s => ({
+              id: s.ID,
+              name: s.NAME,
+              fields: [
+                { name: 'schemaName', label: 'Schema Name', type: 'text', placeholder: 'dbo' },
+                { name: 'tableName', label: 'Table Name', type: 'text', placeholder: 'Users' },
+                { name: 'sqlQuery', label: 'SQL Query (Optional)', type: 'text', multiline: true, placeholder: 'SELECT * FROM Users WHERE...' }
+              ]
+            })));
+          } else {
+            setError('MSSQL connections could not be loaded.');
+          }
+        } catch (err) {
+          console.error('MSSQL sources fetch error:', err);
+          setError('Connection error occurred.');
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      
+      fetchMssqlSources();
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (formData.connectionId) {
+      const selected = dbConnections.find(s => s.id === formData.connectionId);
+      setConfigFields(selected ? selected.fields : []);
+      
+      // Seçilen source'un detaylarını API'den getir
+      const fetchSourceDetails = async () => {
+        try {
+          const token = localStorage.getItem('authToken');
+          const response = await fetch(`/api/sources/${formData.connectionId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          
+          if (response.ok) {
+            const sourceData = await response.json();
+            setSelectedSourceDetails(sourceData.details || {});
+          }
+        } catch (err) {
+          console.error('Source details fetch error:', err);
+        }
+      };
+      
+      fetchSourceDetails();
+    } else {
+      setConfigFields([]);
+      setSelectedSourceDetails({});
+    }
+  }, [formData.connectionId, dbConnections]);
+>>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
 
       const fetchDbSources = async () => {
         setLoading(prev => ({ ...prev, connections: true }));
@@ -192,11 +273,38 @@ const TableSourcePopup = ({ open, onClose, onSave, initialData = {} }) => {
     onClose();
   };
 
+<<<<<<< HEAD
   const getSelectedColumnsCount = () => Object.values(selectedColumns).filter(Boolean).length;
+=======
+  const renderDynamicFields = () => {
+    if (!formData.connectionId) {
+      return <Typography color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>Select a database connection to see properties.</Typography>;
+    }
+    
+    return configFields.map(field => (
+      <TextField
+        key={field.name}
+        fullWidth
+        margin="dense"
+        name={field.name}
+        label={field.label}
+        type={field.type || 'text'}
+        multiline={field.multiline || false}
+        rows={field.multiline ? 3 : 1}
+        value={formData[field.name] || field.defaultValue || ''}
+        onChange={handleChange}
+        placeholder={field.placeholder || ''}
+        disabled={field.disabled || false}
+        variant={field.disabled ? 'filled' : 'outlined'}
+      />
+    ));
+  };
+>>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle sx={{ m: 0, p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+<<<<<<< HEAD
         Tablo Kaynağını Yapılandır
         <IconButton aria-label="close" onClick={onClose} sx={{ color: (theme) => theme.palette.grey[500] }}><CloseIcon /></IconButton>
       </DialogTitle>
@@ -208,6 +316,41 @@ const TableSourcePopup = ({ open, onClose, onSave, initialData = {} }) => {
           <InputLabel id="db-conn-label">Database Bağlantısı</InputLabel>
           <Select labelId="db-conn-label" name="connectionId" value={formData.connectionId || ''} label="Database Connection" onChange={handleConnectionChange}>
             <MenuItem value=""><em>Seçilmedi</em></MenuItem>
+=======
+        Configure Table Source
+        <IconButton aria-label="close" onClick={onClose} sx={{ color: (theme) => theme.palette.grey[500] }}>
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      
+      <DialogContent dividers>
+        <Typography gutterBottom>
+          Specify a name and database table information for this source.
+        </Typography>
+
+        <TextField
+          autoFocus
+          margin="dense"
+          name="customName"
+          label="Node Name (Optional)"
+          type="text"
+          fullWidth
+          variant="outlined"
+          value={formData.customName || ''}
+          onChange={handleChange}
+        />
+
+        <FormControl fullWidth margin="normal" disabled={isLoading}>
+          <InputLabel id="db-connection-label">Database Connection</InputLabel>
+          <Select
+            labelId="db-connection-label"
+            name="connectionId"
+            value={formData.connectionId || ''}
+            label="Database Connection"
+            onChange={handleChange}
+          >
+            <MenuItem value=""><em>Not Selected</em></MenuItem>
+>>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
             {dbConnections.map((conn) => (
               <MenuItem key={conn.id} value={conn.id}>
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -223,6 +366,7 @@ const TableSourcePopup = ({ open, onClose, onSave, initialData = {} }) => {
 
         <Divider sx={{ my: 2 }} />
 
+<<<<<<< HEAD
         {formData.connectionId && (
           <Box>
             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
@@ -241,6 +385,57 @@ const TableSourcePopup = ({ open, onClose, onSave, initialData = {} }) => {
                 </Select>
                 {error.tables && <Alert severity="error" sx={{mt:1}}>{error.tables}</Alert>}
               </FormControl>
+=======
+        {/* Seçilen MSSQL Source Detayları */}
+        {formData.connectionId && Object.keys(selectedSourceDetails).length > 0 && (
+          <Card sx={{ mb: 2, boxShadow: 1 }}>
+            <CardContent sx={{ p: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                  Selected MSSQL Connection
+                </Typography>
+                <Chip 
+                  label="MSSQL" 
+                  size="small" 
+                  color="primary" 
+                  sx={{ height: 20, fontSize: '0.75rem' }}
+                />
+              </Box>
+              
+              <Box sx={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', 
+                gap: 1.5 
+              }}>
+                {Object.entries(selectedSourceDetails).map(([property, value]) => (
+                  <Box 
+                    key={property} 
+                    sx={{ 
+                      p: 1, 
+                      bgcolor: '#fafafa', 
+                      borderRadius: 0.5,
+                      border: '1px solid #e0e0e0'
+                    }}
+                  >
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 500 }}>
+                      {property}
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#1976d2' }}>
+                      {property.toLowerCase().includes('password') ? '••••••••' : value}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            </CardContent>
+          </Card>
+        )}
+
+        <Box sx={{ minHeight: 150 }}>
+          <Typography variant="h6" gutterBottom>Table Configuration</Typography>
+          {isLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+              <CircularProgress />
+>>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
             </Box>
 
             {selectedTable && tablesAndColumns[selectedTable] && (
@@ -284,9 +479,15 @@ const TableSourcePopup = ({ open, onClose, onSave, initialData = {} }) => {
       </DialogContent>
 
       <DialogActions sx={{ p: '16px 24px' }}>
+<<<<<<< HEAD
         <Button onClick={onClose}>İptal</Button>
         <Button onClick={handleSave} variant="contained" disabled={!selectedTable || getSelectedColumnsCount() === 0}>
           Kaydet
+=======
+        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={handleSave} variant="contained" disabled={!formData.connectionId}>
+          Save
+>>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
         </Button>
       </DialogActions>
     </Dialog>

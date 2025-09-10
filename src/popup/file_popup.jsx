@@ -14,9 +14,22 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 
+<<<<<<< HEAD
 
 
 export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data, page }) {
+=======
+/**
+ * BapiPopup
+ * - open: boolean -> dialog open/closed
+ * - setOpen: fn -> function to be used to close dialog
+ * - type: "Hana" | "SAP" -> which form will be displayed
+ * - data: object -> item data received when Details is clicked (e.g., { host, instance, client, user, ... })
+ * - onSave: fn -> kaydetme sonrası parent’a dönen callback
+ */
+export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data }) {
+    // --- common states ---
+>>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
     const [testing, setTesting] = useState(false);
     const [testResult, setTestResult] = useState(null);
     const [saving, setSaving] = useState(false);
@@ -52,6 +65,7 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data, p
             setSourceName(data.name || "");
 
             if (type === "SAP") {
+<<<<<<< HEAD
                 setSapHost(data.details?.host || "");
                 setSapInstance(data.details?.instance || "");
                 setSapSysnr(data.details?.Sysnr || "");
@@ -87,16 +101,35 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data, p
                 setSapLanguage("");
                 setSapUser("");
                 setSapPassword("");
+=======
+                setSapHost(data.host || "");
+                setSapInstance(data.instance || "");
+                setSapClient(data.client || "");
+                setSapLanguage(data.language || "");
+                setSapUser(data.user || "");
+                setSapPassword(""); // leave empty for security
+            } else {
+                setHanaServer(data.server || "");
+                setHanaUsername(data.username || "");
+                setHanaPassword(""); // leave empty for security
+                setHanaDatabase(data.database || "");
+                setHanaSchema(data.schema || "");
+>>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
             }
         }
 
         if (!open) {
+<<<<<<< HEAD
+=======
+            // reset state when popup closes
+>>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
             setTesting(false);
             setSaving(false);
             setTestResult(null);
         }
     }, [open, data, type]);
 
+<<<<<<< HEAD
     const validateSAP = () =>
         sourceName.trim() &&
         sapHost.trim() &&
@@ -135,10 +168,31 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data, p
         if (type === "MSSQL" && !validateMSSQL()) {
             setSnackbar({ open: true, severity: "warning", message: "MSSQL alanlarını doldurun." });
             return;
+=======
+    // --- Simple client-side validation ---
+    const validateSAP = () => sapHost.trim() && sapInstance.trim() && sapClient.trim() && sapUser.trim() && sapPassword.trim();
+    const validateHANA = () => hanaServer.trim() && hanaUsername.trim() && hanaPassword.trim() && hanaDatabase.trim();
+
+    // --- Test connection (simulated) ---
+    const handleTestConnection = async () => {
+        setTestResult(null);
+
+        if (type === "SAP") {
+            if (!validateSAP()) {
+                setSnackbar({ open: true, severity: "warning", message: "Please fill in all required fields for SAP." });
+                return;
+            }
+        } else {
+            if (!validateHANA()) {
+                setSnackbar({ open: true, severity: "warning", message: "Please fill in all required fields for HANA." });
+                return;
+            }
+>>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
         }
 
         setTesting(true); // test sırasında buton disable olsun
 
+<<<<<<< HEAD
         // details objesini form alanlarından oluştur (HANA veya SAP'e göre)
         const details =
             type === "SAP"
@@ -152,6 +206,19 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data, p
                 setSnackbar({ open: true, severity: "error", message: "Giriş token'ı bulunamadı." });
                 setTesting(false);
                 return;
+=======
+        setTimeout(() => {
+            const failCondition =
+                (type === "SAP" && sapUser.toLowerCase().includes("fail")) ||
+                (type === "Hana" && hanaUsername.toLowerCase().includes("fail"));
+
+            if (failCondition) {
+                setTestResult({ success: false, message: "Connection test failed (simulation)." });
+                setSnackbar({ open: true, severity: "error", message: "Test connection failed." });
+            } else {
+                setTestResult({ success: true, message: "Connection test successful." });
+                setSnackbar({ open: true, severity: "success", message: "Test connection successful." });
+>>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
             }
 
             const response = await fetch('/api/sources/test', {
@@ -187,6 +254,7 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data, p
         }
     };
 
+<<<<<<< HEAD
 
 
 
@@ -200,6 +268,16 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data, p
     const handleSave = async () => {
         if (!sourceName.trim()) {
             setSnackbar({ open: true, severity: "warning", message: "Name alanı boş bırakılamaz." });
+=======
+    // --- Save operation (save to API) ---
+    const handleSave = async () => {
+        if (type === "SAP" && !validateSAP()) {
+            setSnackbar({ open: true, severity: "warning", message: "SAP fields are missing. Please fill them to save." });
+            return;
+        }
+        if (type === "Hana" && !validateHANA()) {
+            setSnackbar({ open: true, severity: "warning", message: "HANA fields are missing. Please fill them to save." });
+>>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
             return;
         }
 
@@ -221,7 +299,11 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data, p
                 return;
             }
 
+<<<<<<< HEAD
             const method = data?.id ? "PUT" : "POST";
+=======
+            const sourceName = prompt("Enter a name for the source:") || `${type}_${Date.now()}`;
+>>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
 
             const baseUrl = page === "sources" ? "/api/sources" : "/api/destination";
             const url = data?.id ? `${baseUrl}/${data.id}` : baseUrl;
@@ -245,14 +327,23 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data, p
             }
 
             if (response.ok) {
+<<<<<<< HEAD
                 setSnackbar({ open: true, severity: "success", message: data?.id ? "Source güncellendi." : "Source eklendi." });
+=======
+                setSnackbar({ open: true, severity: "success", message: "Source saved successfully!" });
+                
+>>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
                 if (typeof onSave === "function") {
                     onSave({ ...details, type, name: sourceName, id: data?.id || result.sourceId });
                 }
                 setOpen(false);
             } else {
+<<<<<<< HEAD
                 setSnackbar({ open: true, severity: "error", message: result.message || "Kaydetme hatası." });
                 console.error('Save failed, status:', response.status, 'body:', result);
+=======
+                setSnackbar({ open: true, severity: "error", message: result.message || "Save error." });
+>>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
             }
             setSourceName("");
             switch (type) {
@@ -279,8 +370,13 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data, p
             }
 
         } catch (err) {
+<<<<<<< HEAD
             console.error("Save error (frontend):", err);
             setSnackbar({ open: true, severity: "error", message: "Bağlantı hatası." });
+=======
+            console.error('Save error:', err);
+            setSnackbar({ open: true, severity: "error", message: "Connection error occurred." });
+>>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
         } finally {
             setSaving(false);
         }
@@ -297,6 +393,7 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data, p
         backgroundColor: "#fff",
     };
 
+<<<<<<< HEAD
     const bigButtonSx = {
         minWidth: 150,
         height: 44,
@@ -318,18 +415,59 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data, p
                         Source ({data?.id ? "Edit" : "New"} {type})
                     </Typography>
                     <IconButton onClick={handleCancel} size="small">
+=======
+    // --- Render HANA form ---
+    const renderHanaForm = () => (
+        <Box component="form" noValidate autoComplete="off" sx={{ mt: 1 }}>
+            <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                    <TextField fullWidth label="Server" value={hanaServer} onChange={(e) => setHanaServer(e.target.value)} required />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                    <TextField fullWidth label="Database" value={hanaDatabase} onChange={(e) => setHanaDatabase(e.target.value)} required />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                    <TextField fullWidth label="Username" value={hanaUsername} onChange={(e) => setHanaUsername(e.target.value)} required />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                    <TextField fullWidth type="password" label="Password" value={hanaPassword} onChange={(e) => setHanaPassword(e.target.value)} required />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                    <TextField fullWidth label="Schema (optional)" value={hanaSchema} onChange={(e) => setHanaSchema(e.target.value)} />
+                </Grid>
+            </Grid>
+        </Box>
+    );
+
+    return (
+        <>
+            <Dialog open={open} onClose={handleCancel} maxWidth="md" fullWidth>
+                <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <Typography variant="h6">{type === "SAP" ? "SAP Connection Settings" : "HANA Connection Settings"}</Typography>
+                    <IconButton onClick={handleCancel} size="small" aria-label="close">
+>>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
                         <CloseIcon />
                     </IconButton>
                 </Box>
 
+<<<<<<< HEAD
                 {/* Name */}
                 <Box sx={{ ...boxBorderStyle }}>
                     <Typography sx={{ mb: 1, fontWeight: 500 }}>Name:</Typography>
                     <TextField fullWidth size="small" value={sourceName} onChange={(e) => setSourceName(e.target.value)} />
                 </Box>
+=======
+                <DialogContent dividers>
+                    <Typography variant="body2" sx={{ mb: 2, color: "text.secondary" }}>
+                        {type === "SAP"
+                            ? "Enter the required information to connect to the SAP system."
+                            : "Enter the required information to connect to the HANA database."}
+                    </Typography>
+>>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
 
                 {/* SAP veya HANA form */}
 
+<<<<<<< HEAD
                 {/* SAP / HANA / MSSQL Formları */}
                 {type === "SAP" ? (
                     <>
@@ -430,6 +568,25 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data, p
                                 </Grid>
                             </Grid>
                         </Box>
+=======
+                    <Box sx={{ mt: 2 }}>
+                        {testing ? (
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                <CircularProgress size={20} />
+                                <Typography variant="body2">Testing connection...</Typography>
+                            </Box>
+                        ) : testResult ? (
+                            <Alert severity={testResult.success ? "success" : "error"} sx={{ mt: 1 }}>
+                                {testResult.message}
+                            </Alert>
+                        ) : (
+                            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                                Connection test not performed.
+                            </Typography>
+                        )}
+                    </Box>
+                </DialogContent>
+>>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
 
                         <Typography sx={{ mb: 1, fontWeight: 600 }}>Authentication</Typography>
                         <Box sx={{ ...boxBorderStyle }}>
