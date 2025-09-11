@@ -39,16 +39,12 @@ const Sources = () => {
     const [sources, setSources] = useState([]);
     const [loading, setLoading] = useState(true);
 
-<<<<<<< HEAD
     // Popup ile ilgili state'ler
-=======
-    // Popup control
->>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
     const [openPopup, setOpenPopup] = useState(false);
     const [popupType, setPopupType] = useState("");
     const [selectedSource, setSelectedSource] = useState(null);
+    const [fromDetails, setFromDetails] = useState(false);
 
-<<<<<<< HEAD
     // Silme onayı / işlem state'leri
     const [confirmOpen, setConfirmOpen] = useState(false); // onay dialogu açık mı
     const [deletingId, setDeletingId] = useState(null); // şu anda silinmek üzere seçili id
@@ -63,9 +59,6 @@ const Sources = () => {
     };
 
     // API'den sources listesini getir
-=======
-    // Fetch sources list from API
->>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
     const fetchSources = async () => {
         setLoading(true);
         try {
@@ -89,12 +82,8 @@ const Sources = () => {
                 setSnackbar({ open: true, message: 'Kaynaklar alınamadı.', severity: 'error' });
             }
         } catch (err) {
-<<<<<<< HEAD
             console.error('Sources getirilemedi:', err);
             setSnackbar({ open: true, message: 'Sunucu ile bağlantı kurulamadı.', severity: 'error' });
-=======
-            console.error('Could not fetch sources:', err);
->>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
         } finally {
             setLoading(false);
         }
@@ -106,11 +95,7 @@ const Sources = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-<<<<<<< HEAD
     // Sil butonuna basıldığında: sadece onay dialogunu aç (gerçek silme onayda yapılır)
-=======
-    // Delete record
->>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
     const handleDelete = (id) => {
         setDeletingId(id);     // hangi id silinecek?
         setConfirmOpen(true);  // onay dialogunu aç
@@ -174,9 +159,11 @@ const Sources = () => {
         setDeletingId(null);
     };
 
-<<<<<<< HEAD
+
     // Detay veya edit butonuna tıklayınca popup açma
     const handleDetails = async (source) => {
+
+        setFromDetails(true);
 
         try {
             const token = getAuthToken();
@@ -206,16 +193,6 @@ const Sources = () => {
 
 
     // İkon seçimi
-=======
-    // Open popup when details or edit button is clicked
-    const handleDetails = (source) => {
-        setPopupType(source.type === "hana" ? "Hana" : "SAP");
-        setSelectedSource(source);
-        setOpenPopup(true);
-    };
-
-    // Icon selection
->>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
     const getIcon = (type) => {
         const t = (type || "").toLowerCase();
 
@@ -242,12 +219,12 @@ const Sources = () => {
                 Set up a new sources
             </Typography>
 
-            {/* Card buttons */}
+            {/* Kart butonlar */}
             <DataSourceCards openPopup={openPopup} setOpenPopup={setOpenPopup} setPopupType={setPopupType} />
 
             <hr className="my-4 border-t border-gray-300" />
 
-            {/* List */}
+            {/* Liste */}
             <Stack
                 spacing={1}
                 sx={{
@@ -259,81 +236,10 @@ const Sources = () => {
                     overflowY: "auto",
                 }}
             >
-<<<<<<< HEAD
                 {/* Yükleniyorsa spinner göster */}
                 {loading ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                         <CircularProgress />
-=======
-                {sources.map((s) => (
-                    <Box
-                        key={s.id}
-                        sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            p: 1.5,
-                            borderRadius: 1,
-                            bgcolor: "#ffffff",
-                            "&:hover": { bgcolor: "#eef3ff" },
-                        }}
-                    >
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                            {getIcon(s.type)}
-                            <Box>
-                                <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                    {s.name}
-                                </Typography>
-                                <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                                    {s.description}
-                                </Typography>
-                            </Box>
-                        </Box>
-
-                        <Box sx={{ display: "flex", gap: 1 }}>
-                            {/* Edit button */}
-                            <IconButton
-                                size="small"
-                                color="primary"
-                                onClick={() => handleDetails(s)}
-                                sx={{
-                                    border: "1px solid #d0d7ff",
-                                    bgcolor: "#f5f7ff",
-                                    "&:hover": { bgcolor: "#eef3ff" },
-                                }}
-                            >
-                                <EditIcon fontSize="small" />
-                            </IconButton>
-
-                            {/* Details button */}
-                            <IconButton
-                                size="small"
-                                color="info"
-                                onClick={() => handleDetails(s)}
-                                sx={{
-                                    border: "1px solid #d0d7ff",
-                                    bgcolor: "#f5f7ff",
-                                    "&:hover": { bgcolor: "#eef3ff" },
-                                }}
-                            >
-                                <InfoOutlinedIcon fontSize="small" />
-                            </IconButton>
-
-                            {/* Delete button */}
-                            <IconButton
-                                size="small"
-                                color="error"
-                                onClick={() => handleDelete(s.id)}
-                                sx={{
-                                    border: "1px solid #d0d7ff",
-                                    bgcolor: "#f5f7ff",
-                                    "&:hover": { bgcolor: "#eef3ff" },
-                                }}
-                            >
-                                <DeleteIcon fontSize="small" />
-                            </IconButton>
-                        </Box>
->>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
                     </Box>
                 ) : (
                     <>
@@ -362,10 +268,9 @@ const Sources = () => {
                                     </Box>
                                 </Box>
 
-<<<<<<< HEAD
                                 <Box sx={{ display: "flex", gap: 1 }}>
                                     {/* Edit butonu */}
-                                    <Tooltip title="Düzenle">
+                                    <Tooltip title="Edit">
                                         <IconButton
                                             size="small"
                                             color="primary"
@@ -381,7 +286,7 @@ const Sources = () => {
                                     </Tooltip>
 
                                     {/* Details butonu */}
-                                    <Tooltip title="Detay">
+                                    <Tooltip title="Details">
                                         <IconButton
                                             size="small"
                                             color="info"
@@ -397,7 +302,7 @@ const Sources = () => {
                                     </Tooltip>
 
                                     {/* Delete butonu: eğer şu an bu id siliniyorsa spinner göster */}
-                                    <Tooltip title="Sil">
+                                    <Tooltip title="Delete">
                                         <span> {/* span ile wrapper: disabled IconButton için tooltip çalışır */}
                                             <IconButton
                                                 size="small"
@@ -428,12 +333,6 @@ const Sources = () => {
                             </Typography>
                         )}
                     </>
-=======
-                {sources.length === 0 && (
-                    <Typography sx={{ textAlign: "center", color: "text.secondary", mt: 2 }}>
-                        No sources yet.
-                    </Typography>
->>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
                 )}
             </Stack>
 
@@ -456,11 +355,18 @@ const Sources = () => {
             {/* Popup */}
             <BapiPopup
                 open={openPopup}
-                setOpen={setOpenPopup}
+                setOpen={(val) => {
+                    setOpenPopup(val);
+                    if (!val) {
+                        setFromDetails(false);   // 🔹 Popup kapanınca reset
+                        setSelectedSource(null); // 🔹 Eski datayı da temizle
+                    }
+                }}
                 type={popupType}
                 page="sources"
                 data={selectedSource}
-                onSave={() => fetchSources()} // Refresh list after saving
+                fromDetails={fromDetails}
+                onSave={() => fetchSources()}
             />
 
             {/* Snackbar bildirimleri */}
@@ -478,16 +384,13 @@ function DataSourceCards({ setOpenPopup, setPopupType }) {
     const handleOpen = (type) => {
         setPopupType(type);
         setOpenPopup(true);
+        setFromDetails(false);
     };
 
     return (
         <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-<<<<<<< HEAD
 
             {/* Hana DB kartı */}
-=======
-            {/* Hana DB card */}
->>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
             <Button
                 onClick={() => handleOpen("HANA")}
                 variant="outlined"
@@ -523,7 +426,6 @@ function DataSourceCards({ setOpenPopup, setPopupType }) {
                 </Box>
                 <Box sx={{ textAlign: "left" }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Hana DB</Typography>
-<<<<<<< HEAD
                     <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         Add SAP HANA connection
                     </Typography>
@@ -532,13 +434,6 @@ function DataSourceCards({ setOpenPopup, setPopupType }) {
 
 
             {/* SAP kartı */}
-=======
-                    <Typography variant="caption" sx={{ color: "text.secondary" }}>Add SAP HANA connection</Typography>
-                </Box>
-            </Button>
-
-            {/* SAP card */}
->>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
             <Button
                 onClick={() => handleOpen("SAP")}
                 variant="outlined"
@@ -575,7 +470,6 @@ function DataSourceCards({ setOpenPopup, setPopupType }) {
                 </Box>
                 <Box sx={{ textAlign: "left" }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>SAP</Typography>
-<<<<<<< HEAD
                     <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         Add SAP connection
                     </Typography>
@@ -622,9 +516,6 @@ function DataSourceCards({ setOpenPopup, setPopupType }) {
                     <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         Add MSSQL connection
                     </Typography>
-=======
-                    <Typography variant="caption" sx={{ color: "text.secondary" }}>BAPI / RFC connection</Typography>
->>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
                 </Box>
             </Button>
         </Stack>

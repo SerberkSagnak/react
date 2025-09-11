@@ -8,8 +8,10 @@ import Button from '@mui/material/Button';
 import BapiPopup from './popup/bapi_popup.jsx';
 import QueryPopup from './popup/query_popup.jsx';
 import DefaultPopup from './popup/default_popup.jsx';
+import TableSourcePopup from './popup/table_source_popup.jsx';
+import TableDestinationPopup from './popup/table_destination_popup.jsx';
 
-const NodeConfigModal = ({ isOpen, onClose, nodeData, onNodeDataChange }) => {
+const NodeConfigModal = ({ isOpen, onClose, nodeData, onNodeDataChange, allNodes, allEdges }) => {
   const [formData, setFormData] = useState({});
 
   useEffect(() => {
@@ -29,13 +31,51 @@ const NodeConfigModal = ({ isOpen, onClose, nodeData, onNodeDataChange }) => {
     onClose();
   };
 
-  // BAPI tipi kendi modal'ını yönettiği için onu ayrı tutuyoruz.
+  // Kendi modal'ını yöneten popup'lar
   if (nodeData.type === 'bapi') {
     return (
       <BapiPopup
         open={isOpen}
         onClose={onClose}
-        onSave={handleSave} // handleSave, BapiPopup'tan gelen veriyi işler.
+        onSave={handleSave}
+        initialData={nodeData.data || {}}
+      />
+    );
+  }
+
+  if (nodeData.type === 'tableSource') {
+    return (
+      <TableSourcePopup
+        open={isOpen}
+        setOpen={(open) => !open && onClose()}
+        onSave={handleSave}
+        initialData={nodeData.data || {}}
+      />
+    );
+  }
+
+  if (nodeData.type === 'tableDestination') {
+    // TableDestination için source data'yı edge connection'lardan bul
+    let sourceData = nodeData.data?.sourceData || null;
+    
+    // Eğer sourceData yoksa, bağlı olan source node'ları ara
+    if (!sourceData && allNodes && allEdges) {
+      const incomingEdges = allEdges.filter(edge => edge.target === nodeData.id);
+      if (incomingEdges.length > 0) {
+        const sourceNodeId = incomingEdges[0].source; // İlk bağlı source'u al
+        const sourceNode = allNodes.find(node => node.id === sourceNodeId);
+        if (sourceNode && sourceNode.data && sourceNode.data.isConfigured) {
+          sourceData = sourceNode.data;
+        }
+      }
+    }
+    
+    return (
+      <TableDestinationPopup
+        open={isOpen}
+        setOpen={(open) => !open && onClose()}
+        onSave={handleSave}
+        sourceData={sourceData}
         initialData={nodeData.data || {}}
       />
     );

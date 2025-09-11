@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from "react";
 import {
     Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
     Button,
     TextField,
     Grid,
@@ -11,25 +14,29 @@ import {
     Alert,
     IconButton,
     MenuItem,
+    FormControl,
+    InputLabel,
+    Select,
+    List,
+    ListItem,
+    ListItemText,
+    Checkbox,
+    FormControlLabel,
+    Divider,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 
-<<<<<<< HEAD
-
-
-export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data, page }) {
-=======
 /**
  * BapiPopup
  * - open: boolean -> dialog open/closed
  * - setOpen: fn -> function to be used to close dialog
- * - type: "Hana" | "SAP" -> which form will be displayed
+ * - type: "HANA" | "SAP" | "MSSQL" -> which form will be displayed
  * - data: object -> item data received when Details is clicked (e.g., { host, instance, client, user, ... })
- * - onSave: fn -> kaydetme sonrası parent’a dönen callback
+ * - onSave: fn -> kaydetme sonrası parent'a dönen callback
+ * - page: string -> "sources" or "destination" to determine API endpoint
  */
-export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data }) {
+export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data, page = "sources" }) {
     // --- common states ---
->>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
     const [testing, setTesting] = useState(false);
     const [testResult, setTestResult] = useState(null);
     const [saving, setSaving] = useState(false);
@@ -44,6 +51,7 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
     const [mssqlDatabase, setMssqlDatabase] = useState("");
     const [mssqlUsername, setMssqlUsername] = useState("");
     const [mssqlPassword, setMssqlPassword] = useState("");
+    
     // SAP alanları
     const [sapHost, setSapHost] = useState("");
     const [sapInstance, setSapInstance] = useState("");
@@ -59,77 +67,64 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
     const [hanaSchema, setHanaSchema] = useState("");
     const [hanaPort, setHanaPort] = useState("");
 
+    // Yeni state'ler: Schema, Table, Column seçimi için
+    const [connectionSuccess, setConnectionSuccess] = useState(false);
+    const [schemas, setSchemas] = useState([]);
+    const [selectedSchema, setSelectedSchema] = useState("");
+    const [tables, setTables] = useState([]);
+    const [selectedTable, setSelectedTable] = useState("");
+    const [columns, setColumns] = useState([]);
+    const [selectedColumns, setSelectedColumns] = useState({});
+    const [loadingSchemas, setLoadingSchemas] = useState(false);
+    const [loadingTables, setLoadingTables] = useState(false);
+    const [loadingColumns, setLoadingColumns] = useState(false);
+
     // Popup açıldığında gelen datayı forma doldur
     useEffect(() => {
         if (open && data) {
             setSourceName(data.name || "");
 
             if (type === "SAP") {
-<<<<<<< HEAD
                 setSapHost(data.details?.host || "");
                 setSapInstance(data.details?.instance || "");
-                setSapSysnr(data.details?.Sysnr || "");
+                setSapSysnr(data.details?.sysnr || data.details?.Sysnr || "");
                 setSapLanguage(data.details?.language || "");
                 setSapUser(data.details?.user || "");
-                setSapPassword(data.details?.password || "");
-                // HANA temizle
-                setHanaHost("");
-                setHanaUsername("");
-                setHanaPassword("");
-                setHanaPort("");
-            }
-            else if (type === "MSSQL") {
+                setSapPassword(""); // güvenlik için boş bırak
+                // Diğerleri temizle
+                setHanaHost(""); setHanaUsername(""); setHanaPassword(""); setHanaPort(""); setHanaSchema("");
+                setMssqlHost(""); setMssqlIp(""); setMssqlPort(""); setMssqlDatabase(""); setMssqlUsername(""); setMssqlPassword("");
+            } else if (type === "MSSQL") {
                 setMssqlHost(data.details?.host || "");
                 setMssqlIp(data.details?.ip || "");
                 setMssqlPort(data.details?.port || "");
                 setMssqlDatabase(data.details?.database || "");
-                setMssqlUsername(data.details?.username || "");
-                setMssqlPassword(data.details?.password || "");
-                // SAP & HANA temizle
+                setMssqlUsername(data.details?.user || data.details?.username || "");
+                setMssqlPassword(""); // güvenlik için boş bırak
+                // Diğerleri temizle
                 setSapHost(""); setSapInstance(""); setSapSysnr(""); setSapLanguage(""); setSapUser(""); setSapPassword("");
                 setHanaHost(""); setHanaPort(""); setHanaUsername(""); setHanaPassword(""); setHanaSchema("");
-            } else {
+            } else { // HANA
                 setHanaHost(data.details?.host || "");
                 setHanaPort(data.details?.port || "");
-                setHanaUsername(data.details?.username || "");
-                setHanaPassword(data.details?.password || "");
+                setHanaUsername(data.details?.user || data.details?.username || "");
+                setHanaPassword(""); // güvenlik için boş bırak
                 setHanaSchema(data.details?.schema || "");
-                // SAP temizle
-                setSapHost("");
-                setSapInstance("");
-                setSapSysnr("");
-                setSapLanguage("");
-                setSapUser("");
-                setSapPassword("");
-=======
-                setSapHost(data.host || "");
-                setSapInstance(data.instance || "");
-                setSapClient(data.client || "");
-                setSapLanguage(data.language || "");
-                setSapUser(data.user || "");
-                setSapPassword(""); // leave empty for security
-            } else {
-                setHanaServer(data.server || "");
-                setHanaUsername(data.username || "");
-                setHanaPassword(""); // leave empty for security
-                setHanaDatabase(data.database || "");
-                setHanaSchema(data.schema || "");
->>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
+                // Diğerleri temizle
+                setSapHost(""); setSapInstance(""); setSapSysnr(""); setSapLanguage(""); setSapUser(""); setSapPassword("");
+                setMssqlHost(""); setMssqlIp(""); setMssqlPort(""); setMssqlDatabase(""); setMssqlUsername(""); setMssqlPassword("");
             }
         }
 
         if (!open) {
-<<<<<<< HEAD
-=======
             // reset state when popup closes
->>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
             setTesting(false);
             setSaving(false);
             setTestResult(null);
         }
     }, [open, data, type]);
 
-<<<<<<< HEAD
+    // Validation functions
     const validateSAP = () =>
         sourceName.trim() &&
         sapHost.trim() &&
@@ -140,7 +135,6 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
     const validateMSSQL = () =>
         sourceName.trim() &&
         mssqlHost.trim() &&
-        mssqlIp.trim() &&
         mssqlPort.trim() &&
         mssqlDatabase.trim() &&
         mssqlUsername.trim();
@@ -151,12 +145,9 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
         hanaPort.trim() &&
         hanaUsername.trim();
 
-
-
-    // --- handleTestConnection (düzeltildi) ---
-    // açıklama: doğru endpoint'e POST atar, testing state'i set edilir, response güvenli parse edilir
+    // Test connection handler
     const handleTestConnection = async () => {
-        // Validasyon (isteğe bağlı, en azından form alanlarını kontrol et)
+        // Validasyon
         if (type === "SAP" && !validateSAP()) {
             setSnackbar({ open: true, severity: "warning", message: "SAP alanlarını doldurun." });
             return;
@@ -168,57 +159,25 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
         if (type === "MSSQL" && !validateMSSQL()) {
             setSnackbar({ open: true, severity: "warning", message: "MSSQL alanlarını doldurun." });
             return;
-=======
-    // --- Simple client-side validation ---
-    const validateSAP = () => sapHost.trim() && sapInstance.trim() && sapClient.trim() && sapUser.trim() && sapPassword.trim();
-    const validateHANA = () => hanaServer.trim() && hanaUsername.trim() && hanaPassword.trim() && hanaDatabase.trim();
-
-    // --- Test connection (simulated) ---
-    const handleTestConnection = async () => {
-        setTestResult(null);
-
-        if (type === "SAP") {
-            if (!validateSAP()) {
-                setSnackbar({ open: true, severity: "warning", message: "Please fill in all required fields for SAP." });
-                return;
-            }
-        } else {
-            if (!validateHANA()) {
-                setSnackbar({ open: true, severity: "warning", message: "Please fill in all required fields for HANA." });
-                return;
-            }
->>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
         }
 
-        setTesting(true); // test sırasında buton disable olsun
+        setTesting(true);
+        setTestResult(null);
 
-<<<<<<< HEAD
-        // details objesini form alanlarından oluştur (HANA veya SAP'e göre)
+        // details objesini form alanlarından oluştur (server'ın beklediği format)
         const details =
             type === "SAP"
                 ? { user: sapUser, password: sapPassword, host: sapHost, sysnr: sapSysnr }
                 : type === "HANA"
-                    ? { host: hanaHost, port: hanaPort, username: hanaUsername, password: hanaPassword }
+                    ? { host: hanaHost, port: hanaPort, user: hanaUsername, password: hanaPassword }
                     : { host: mssqlHost, database: mssqlDatabase, user: mssqlUsername, password: mssqlPassword };
+
         try {
             const token = localStorage.getItem("authToken");
             if (!token) {
                 setSnackbar({ open: true, severity: "error", message: "Giriş token'ı bulunamadı." });
                 setTesting(false);
                 return;
-=======
-        setTimeout(() => {
-            const failCondition =
-                (type === "SAP" && sapUser.toLowerCase().includes("fail")) ||
-                (type === "Hana" && hanaUsername.toLowerCase().includes("fail"));
-
-            if (failCondition) {
-                setTestResult({ success: false, message: "Connection test failed (simulation)." });
-                setSnackbar({ open: true, severity: "error", message: "Test connection failed." });
-            } else {
-                setTestResult({ success: true, message: "Connection test successful." });
-                setSnackbar({ open: true, severity: "success", message: "Test connection successful." });
->>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
             }
 
             const response = await fetch('/api/sources/test', {
@@ -230,11 +189,11 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
                 body: JSON.stringify({ details, type }),
             });
 
-            const text = await response.text(); // önce text al
+            const text = await response.text();
             let result = {};
             try {
                 result = text ? JSON.parse(text) : {};
-            } catch (e) {
+            } catch {
                 console.warn('Test connection: parse error, raw text:', text);
                 result = {};
             }
@@ -242,6 +201,12 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
             if (response.ok) {
                 setTestResult({ success: true, message: result.message || 'Bağlantı testi başarılı.' });
                 setSnackbar({ open: true, severity: 'success', message: result.message || 'Bağlantı testi başarılı.' });
+                setConnectionSuccess(true);
+                
+                // Başarılı bağlantıdan sonra schema listesini getir (sadece HANA ve MSSQL için)
+                if (type === "HANA" || type === "MSSQL") {
+                    fetchSchemas(details, type);
+                }
             } else {
                 setTestResult({ success: false, message: result.message || 'Bağlantı testi başarısız.' });
                 setSnackbar({ open: true, severity: 'error', message: result.message || 'Bağlantı testi başarısız.' });
@@ -254,39 +219,154 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
         }
     };
 
-<<<<<<< HEAD
+    // Schema listesini getir
+    const fetchSchemas = async (details, type) => {
+        setLoadingSchemas(true);
+        try {
+            const token = localStorage.getItem("authToken");
+            const response = await fetch('/api/sources/schemas', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ details, type }),
+            });
 
+            if (response.ok) {
+                const data = await response.json();
+                setSchemas(data.schemas || []);
+            } else {
+                console.error('Schema fetch failed');
+                setSnackbar({ open: true, severity: 'error', message: 'Schema listesi alınamadı.' });
+            }
+        } catch (err) {
+            console.error('Schema fetch error:', err);
+            setSnackbar({ open: true, severity: 'error', message: 'Schema listesi getirilemedi.' });
+        } finally {
+            setLoadingSchemas(false);
+        }
+    };
 
+    // Table listesini getir
+    const fetchTables = async (schema) => {
+        if (!schema) return;
+        
+        setLoadingTables(true);
+        const details = type === "SAP" 
+            ? { user: sapUser, password: sapPassword, host: sapHost, sysnr: sapSysnr }
+            : type === "HANA" 
+                ? { host: hanaHost, port: hanaPort, user: hanaUsername, password: hanaPassword }
+                : { host: mssqlHost, database: mssqlDatabase, user: mssqlUsername, password: mssqlPassword };
+        
+        try {
+            const token = localStorage.getItem("authToken");
+            const response = await fetch('/api/sources/tables', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ details, type, schema }),
+            });
 
+            if (response.ok) {
+                const data = await response.json();
+                setTables(data.tables || []);
+            } else {
+                console.error('Table fetch failed');
+                setSnackbar({ open: true, severity: 'error', message: 'Table listesi alınamadı.' });
+            }
+        } catch (err) {
+            console.error('Table fetch error:', err);
+            setSnackbar({ open: true, severity: 'error', message: 'Table listesi getirilemedi.' });
+        } finally {
+            setLoadingTables(false);
+        }
+    };
 
+    // Column listesini getir
+    const fetchColumns = async (schema, table) => {
+        if (!schema || !table) return;
+        
+        setLoadingColumns(true);
+        const details = type === "SAP" 
+            ? { user: sapUser, password: sapPassword, host: sapHost, sysnr: sapSysnr }
+            : type === "HANA" 
+                ? { host: hanaHost, port: hanaPort, user: hanaUsername, password: hanaPassword }
+                : { host: mssqlHost, database: mssqlDatabase, user: mssqlUsername, password: mssqlPassword };
+        
+        try {
+            const token = localStorage.getItem("authToken");
+            const response = await fetch('/api/sources/columns', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ details, type, schema, table }),
+            });
 
+            if (response.ok) {
+                const data = await response.json();
+                setColumns(data.columns || []);
+                setSelectedColumns({}); // Reset column selections
+            } else {
+                console.error('Column fetch failed');
+                setSnackbar({ open: true, severity: 'error', message: 'Column listesi alınamadı.' });
+            }
+        } catch (err) {
+            console.error('Column fetch error:', err);
+            setSnackbar({ open: true, severity: 'error', message: 'Column listesi getirilemedi.' });
+        } finally {
+            setLoadingColumns(false);
+        }
+    };
 
+    // Schema seçildiğinde table listesini getir
+    const handleSchemaChange = (schemaName) => {
+        setSelectedSchema(schemaName);
+        setSelectedTable("");
+        setTables([]);
+        setColumns([]);
+        setSelectedColumns({});
+        if (schemaName) {
+            fetchTables(schemaName);
+        }
+    };
 
+    // Table seçildiğinde column listesini getir
+    const handleTableChange = (tableName) => {
+        setSelectedTable(tableName);
+        setColumns([]);
+        setSelectedColumns({});
+        if (tableName && selectedSchema) {
+            fetchColumns(selectedSchema, tableName);
+        }
+    };
 
-    // 🔑 Kaydetme (Yeni ekle veya güncelle)
-    // --- handleSave (güvenli JSON parse ve hata loglama ile) ---
+    // Column seçimi toggle
+    const handleColumnToggle = (columnName) => {
+        setSelectedColumns(prev => ({
+            ...prev,
+            [columnName]: !prev[columnName]
+        }));
+    };
+
+    // Save handler
     const handleSave = async () => {
         if (!sourceName.trim()) {
             setSnackbar({ open: true, severity: "warning", message: "Name alanı boş bırakılamaz." });
-=======
-    // --- Save operation (save to API) ---
-    const handleSave = async () => {
-        if (type === "SAP" && !validateSAP()) {
-            setSnackbar({ open: true, severity: "warning", message: "SAP fields are missing. Please fill them to save." });
-            return;
-        }
-        if (type === "Hana" && !validateHANA()) {
-            setSnackbar({ open: true, severity: "warning", message: "HANA fields are missing. Please fill them to save." });
->>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
             return;
         }
 
         const details =
             type === "SAP"
-                ? { host: sapHost, instance: sapInstance, Sysnr: sapSysnr, language: sapLanguage, user: sapUser, password: sapPassword }
+                ? { host: sapHost, instance: sapInstance, sysnr: sapSysnr, language: sapLanguage, user: sapUser, password: sapPassword }
                 : type === "HANA"
-                    ? { host: hanaHost, port: hanaPort, username: hanaUsername, schema: hanaSchema, password: hanaPassword }
-                    : { host: mssqlHost, ip: mssqlIp, port: mssqlPort, database: mssqlDatabase, username: mssqlUsername, password: mssqlPassword };
+                    ? { host: hanaHost, port: hanaPort, user: hanaUsername, schema: hanaSchema, password: hanaPassword }
+                    : { host: mssqlHost, ip: mssqlIp, port: mssqlPort, database: mssqlDatabase, user: mssqlUsername, password: mssqlPassword };
+        
         const payload = { name: sourceName, type: type.toUpperCase(), details };
 
         setSaving(true);
@@ -299,12 +379,7 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
                 return;
             }
 
-<<<<<<< HEAD
             const method = data?.id ? "PUT" : "POST";
-=======
-            const sourceName = prompt("Enter a name for the source:") || `${type}_${Date.now()}`;
->>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
-
             const baseUrl = page === "sources" ? "/api/sources" : "/api/destination";
             const url = data?.id ? `${baseUrl}/${data.id}` : baseUrl;
 
@@ -321,68 +396,54 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
             let result = {};
             try {
                 result = text ? JSON.parse(text) : {};
-            } catch (e) {
+            } catch {
                 console.warn('Save: JSON parse failed, raw response:', text);
                 result = {};
             }
 
             if (response.ok) {
-<<<<<<< HEAD
                 setSnackbar({ open: true, severity: "success", message: data?.id ? "Source güncellendi." : "Source eklendi." });
-=======
-                setSnackbar({ open: true, severity: "success", message: "Source saved successfully!" });
                 
->>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
                 if (typeof onSave === "function") {
-                    onSave({ ...details, type, name: sourceName, id: data?.id || result.sourceId });
+                    const selectedColumnsArray = Object.keys(selectedColumns).filter(key => selectedColumns[key]);
+                    onSave({ 
+                        ...details, 
+                        type, 
+                        name: sourceName, 
+                        id: data?.id || result.sourceId,
+                        selectedSchema,
+                        selectedTable,
+                        selectedColumns: selectedColumnsArray
+                    });
                 }
                 setOpen(false);
+                
+                // Clear form
+                clearForm();
             } else {
-<<<<<<< HEAD
                 setSnackbar({ open: true, severity: "error", message: result.message || "Kaydetme hatası." });
                 console.error('Save failed, status:', response.status, 'body:', result);
-=======
-                setSnackbar({ open: true, severity: "error", message: result.message || "Save error." });
->>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
             }
-            setSourceName("");
-            switch (type) {
-                case "HANA":
-                    setHanaHost(""); setHanaPort(""); setHanaUsername(""); setHanaPassword(""); setHanaSchema("");
-                    break;
-
-                case "MSSQL":
-                    setMssqlHost(""); setMssqlDatabase(""); setMssqlIp(""); setMssqlPassword(""); setMssqlPort(""); setMssqlUsername("");
-                    break;
-
-                case "SAP":
-                    setSapHost("");
-                    setSapInstance("");
-                    setSapSysnr("");
-                    setSapLanguage("");
-                    setSapUser("");
-                    setSapPassword("");
-
-                    break;
-
-                default:
-                    throw new Error(`Desteklenmeyen veritabanı tipi: ${type}`);
-            }
-
         } catch (err) {
-<<<<<<< HEAD
             console.error("Save error (frontend):", err);
             setSnackbar({ open: true, severity: "error", message: "Bağlantı hatası." });
-=======
-            console.error('Save error:', err);
-            setSnackbar({ open: true, severity: "error", message: "Connection error occurred." });
->>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
         } finally {
             setSaving(false);
         }
     };
 
-    const handleCancel = () => setOpen(false);
+    const clearForm = () => {
+        setSourceName("");
+        setSapHost(""); setSapInstance(""); setSapSysnr(""); setSapLanguage(""); setSapUser(""); setSapPassword("");
+        setHanaHost(""); setHanaPort(""); setHanaUsername(""); setHanaPassword(""); setHanaSchema("");
+        setMssqlHost(""); setMssqlIp(""); setMssqlPort(""); setMssqlDatabase(""); setMssqlUsername(""); setMssqlPassword("");
+    };
+
+    const handleCancel = () => {
+        setOpen(false);
+        clearForm();
+    };
+    
     const handleCloseSnackbar = () => setSnackbar(prev => ({ ...prev, open: false }));
 
     const boxBorderStyle = {
@@ -393,7 +454,6 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
         backgroundColor: "#fff",
     };
 
-<<<<<<< HEAD
     const bigButtonSx = {
         minWidth: 150,
         height: 44,
@@ -412,62 +472,19 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
                 {/* Başlık */}
                 <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
                     <Typography variant="h4" component="div" sx={{ fontWeight: 700 }}>
-                        Source ({data?.id ? "Edit" : "New"} {type})
+                        {page === "sources" ? "Source" : "Destination"} ({data?.id ? "Edit" : "New"} {type})
                     </Typography>
                     <IconButton onClick={handleCancel} size="small">
-=======
-    // --- Render HANA form ---
-    const renderHanaForm = () => (
-        <Box component="form" noValidate autoComplete="off" sx={{ mt: 1 }}>
-            <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                    <TextField fullWidth label="Server" value={hanaServer} onChange={(e) => setHanaServer(e.target.value)} required />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                    <TextField fullWidth label="Database" value={hanaDatabase} onChange={(e) => setHanaDatabase(e.target.value)} required />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                    <TextField fullWidth label="Username" value={hanaUsername} onChange={(e) => setHanaUsername(e.target.value)} required />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                    <TextField fullWidth type="password" label="Password" value={hanaPassword} onChange={(e) => setHanaPassword(e.target.value)} required />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                    <TextField fullWidth label="Schema (optional)" value={hanaSchema} onChange={(e) => setHanaSchema(e.target.value)} />
-                </Grid>
-            </Grid>
-        </Box>
-    );
-
-    return (
-        <>
-            <Dialog open={open} onClose={handleCancel} maxWidth="md" fullWidth>
-                <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <Typography variant="h6">{type === "SAP" ? "SAP Connection Settings" : "HANA Connection Settings"}</Typography>
-                    <IconButton onClick={handleCancel} size="small" aria-label="close">
->>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
                         <CloseIcon />
                     </IconButton>
                 </Box>
 
-<<<<<<< HEAD
                 {/* Name */}
                 <Box sx={{ ...boxBorderStyle }}>
                     <Typography sx={{ mb: 1, fontWeight: 500 }}>Name:</Typography>
                     <TextField fullWidth size="small" value={sourceName} onChange={(e) => setSourceName(e.target.value)} />
                 </Box>
-=======
-                <DialogContent dividers>
-                    <Typography variant="body2" sx={{ mb: 2, color: "text.secondary" }}>
-                        {type === "SAP"
-                            ? "Enter the required information to connect to the SAP system."
-                            : "Enter the required information to connect to the HANA database."}
-                    </Typography>
->>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
 
-                {/* SAP veya HANA form */}
-
-<<<<<<< HEAD
                 {/* SAP / HANA / MSSQL Formları */}
                 {type === "SAP" ? (
                     <>
@@ -489,11 +506,11 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
                                 <Grid item xs={6}>
                                     <Typography>Language:</Typography>
                                     <TextField
-                                        select                 // TextField’i combobox gibi yapar
+                                        select
                                         fullWidth
                                         size="small"
-                                        value={sapLanguage}    // seçili değer state’den gelir
-                                        onChange={(e) => setSapLanguage(e.target.value)} // seçilen değeri state’e yaz
+                                        value={sapLanguage}
+                                        onChange={(e) => setSapLanguage(e.target.value)}
                                     >
                                         <MenuItem value="EN">English</MenuItem>
                                         <MenuItem value="TR">Turkish</MenuItem>
@@ -527,6 +544,10 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
                                 <Grid item xs={12}>
                                     <Typography>Port:</Typography>
                                     <TextField fullWidth size="small" value={hanaPort} onChange={(e) => setHanaPort(e.target.value)} />
+                                </Grid>
+                                <Grid item xs={12}>
+                                    <Typography>Schema (optional):</Typography>
+                                    <TextField fullWidth size="small" value={hanaSchema} onChange={(e) => setHanaSchema(e.target.value)} />
                                 </Grid>
                             </Grid>
                         </Box>
@@ -568,26 +589,6 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
                                 </Grid>
                             </Grid>
                         </Box>
-=======
-                    <Box sx={{ mt: 2 }}>
-                        {testing ? (
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                <CircularProgress size={20} />
-                                <Typography variant="body2">Testing connection...</Typography>
-                            </Box>
-                        ) : testResult ? (
-                            <Alert severity={testResult.success ? "success" : "error"} sx={{ mt: 1 }}>
-                                {testResult.message}
-                            </Alert>
-                        ) : (
-                            <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                                Connection test not performed.
-                            </Typography>
-                        )}
-                    </Box>
-                </DialogContent>
->>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
-
                         <Typography sx={{ mb: 1, fontWeight: 600 }}>Authentication</Typography>
                         <Box sx={{ ...boxBorderStyle }}>
                             <Grid container spacing={2}>
@@ -604,11 +605,10 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
                     </>
                 )}
 
-
                 {/* Test Sonucu */}
                 <Box sx={{ mt: 2 }}>
-                    {/* {testing ? (
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 100 }}>
+                    {testing ? (
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                             <CircularProgress size={18} />
                             <Typography>Testing connection...</Typography>
                         </Box>
@@ -618,8 +618,117 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data })
                         <Typography variant="caption" sx={{ color: "text.secondary" }}>
                             Test yapılmadı
                         </Typography>
-                    )} */}
+                    )}
                 </Box>
+
+                {/* Schema, Table, Column Seçimi - Sadece HANA ve MSSQL için */}
+                {testResult?.success && (type === "HANA" || type === "MSSQL") && (
+                    <Box sx={{ mt: 3 }}>
+                        <Divider sx={{ my: 2 }} />
+                        <Typography variant="h6" sx={{ mb: 2 }}>Database Explorer</Typography>
+                        
+                        {/* Schema Seçimi */}
+                        <Box sx={{ ...boxBorderStyle }}>
+                            <Typography sx={{ mb: 1, fontWeight: 500 }}>Schema:</Typography>
+                            <FormControl fullWidth size="small">
+                                <InputLabel>Select Schema</InputLabel>
+                                <Select
+                                    value={selectedSchema}
+                                    label="Select Schema"
+                                    onChange={(e) => handleSchemaChange(e.target.value)}
+                                    disabled={loadingSchemas}
+                                >
+                                    {loadingSchemas ? (
+                                        <MenuItem disabled>
+                                            <CircularProgress size={16} /> Loading...
+                                        </MenuItem>
+                                    ) : (
+                                        schemas.map((schema) => (
+                                            <MenuItem key={schema} value={schema}>
+                                                {schema}
+                                            </MenuItem>
+                                        ))
+                                    )}
+                                </Select>
+                            </FormControl>
+                        </Box>
+
+                        {/* Table Seçimi */}
+                        {selectedSchema && (
+                            <Box sx={{ ...boxBorderStyle }}>
+                                <Typography sx={{ mb: 1, fontWeight: 500 }}>Table:</Typography>
+                                <FormControl fullWidth size="small">
+                                    <InputLabel>Select Table</InputLabel>
+                                    <Select
+                                        value={selectedTable}
+                                        label="Select Table"
+                                        onChange={(e) => handleTableChange(e.target.value)}
+                                        disabled={loadingTables}
+                                    >
+                                        {loadingTables ? (
+                                            <MenuItem disabled>
+                                                <CircularProgress size={16} /> Loading...
+                                            </MenuItem>
+                                        ) : (
+                                            tables.map((table) => (
+                                                <MenuItem key={table} value={table}>
+                                                    {table}
+                                                </MenuItem>
+                                            ))
+                                        )}
+                                    </Select>
+                                </FormControl>
+                            </Box>
+                        )}
+
+                        {/* Column Seçimi */}
+                        {selectedTable && (
+                            <Box sx={{ ...boxBorderStyle }}>
+                                <Typography sx={{ mb: 1, fontWeight: 500 }}>Columns:</Typography>
+                                {loadingColumns ? (
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                        <CircularProgress size={16} />
+                                        <Typography variant="body2">Loading columns...</Typography>
+                                    </Box>
+                                ) : (
+                                    <List dense sx={{ maxHeight: 200, overflow: 'auto' }}>
+                                        {columns.map((column) => (
+                                            <ListItem key={column.name} disablePadding>
+                                                <FormControlLabel
+                                                    control={
+                                                        <Checkbox
+                                                            checked={selectedColumns[column.name] || false}
+                                                            onChange={() => handleColumnToggle(column.name)}
+                                                            size="small"
+                                                        />
+                                                    }
+                                                    label={
+                                                        <ListItemText
+                                                            primary={column.name}
+                                                            secondary={`${column.type}${column.length ? `(${column.length})` : ''} ${column.nullable ? 'NULL' : 'NOT NULL'}`}
+                                                        />
+                                                    }
+                                                />
+                                            </ListItem>
+                                        ))}
+                                        {columns.length === 0 && (
+                                            <Typography variant="body2" sx={{ color: "text.secondary", textAlign: 'center', py: 2 }}>
+                                                No columns found
+                                            </Typography>
+                                        )}
+                                    </List>
+                                )}
+                                
+                                {/* Seçilen Column Sayısı */}
+                                {Object.keys(selectedColumns).filter(key => selectedColumns[key]).length > 0 && (
+                                    <Typography variant="caption" sx={{ mt: 1, display: 'block', color: 'primary.main' }}>
+                                        {Object.keys(selectedColumns).filter(key => selectedColumns[key]).length} column(s) selected
+                                    </Typography>
+                                )}
+                            </Box>
+                        )}
+                    </Box>
+                )}
 
                 {/* Butonlar */}
                 <Box sx={{ display: "flex", justifyContent: "space-between", mt: 2 }}>

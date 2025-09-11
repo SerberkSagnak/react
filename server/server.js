@@ -5,8 +5,9 @@ import cors from 'cors';
 import sql from 'mssql';
 import hana from "@sap/hana-client";
 import bcryptjs from 'bcryptjs';
-import jwt from 'jsonwebtoken'; // crypto ve cookieParser yerine jwt import edildi
+import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
+import process from 'process';
 dotenv.config(); // .env server klasöründe ise bu yeterli
 
 
@@ -20,8 +21,9 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
+
 const app = express();
-const port = process.env.PORT || 3001;
+const PORT = 3001;
 
 // --- Veritabanı Kurulumu --- MSSQL MAİN DB
 const dbConfig = {
@@ -57,7 +59,7 @@ const requireAuth = (req, res, next) => {
     // Payload içindeki kullanıcı ID'sini ve adını isteğe (req) ekle
     req.user = { id: payload.userId, username: payload.username };
     next();
-  } catch (err) {
+  } catch (_err) {
     return res.status(401).json({ message: 'Geçersiz veya süresi dolmuş token.' });
   }
 };
@@ -65,63 +67,52 @@ const requireAuth = (req, res, next) => {
 // --- KULLANICI YÖNETİMİ API ENDPOINT'LERİ ---
 
 // [POST] /api/register 
-<<<<<<< HEAD
-app.post('/api/register', async (req, res) => { /* ... önceki kodla aynı ... */ });
-=======
 app.post('/api/register', async (req, res) => {
-  const { username, name, surname, mail, password } = req.body;
+  const { username, password } = req.body;
+  if (!username || !password) return res.status(400).json({ message: 'Kullanıcı adı ve şifre gereklidir.' });
   
-  if (!username || !name || !surname || !mail || !password) {
-    return res.status(400).json({ message: 'Tüm zorunlu alanları doldurun.' });
-  }
-
   try {
     const pool = await poolPromise;
-    const transaction = new sql.Transaction(pool);
+    const hashedPassword = await bcryptjs.hash(password, 12);
     
+    // Kullanıcı var mı kontrol et
+    const userCheck = await pool.request()
+      .input('username', sql.NVarChar, username)
+      .query('SELECT u.ID FROM [mosuser].[Users] u JOIN [mosuser].[LOGIN_INFO] li ON u.ID = li.USER_ID WHERE li.USER_NAME = @username');
+    
+    if (userCheck.recordset.length > 0) {
+      return res.status(409).json({ message: 'Bu kullanıcı adı zaten kayıtlı.' });
+    }
+    
+    const transaction = new sql.Transaction(pool);
     await transaction.begin();
     
     try {
-      // 1. Kullanıcı adı kontrolü
-      const userCheck = await transaction.request()
-        .input('username', sql.NVarChar, username)
-        .query('SELECT USER_NAME FROM [mosuser].[LOGIN_INFO] WHERE USER_NAME = @username');
-      
-      if (userCheck.recordset.length > 0) {
-        await transaction.rollback();
-        return res.status(400).json({ message: 'Bu kullanıcı adı zaten kullanılıyor.' });
-      }
-
-      // 2. Users tablosuna kaydet
-      const hashedPassword = await bcryptjs.hash(password, 10);
+      // Kullanıcı oluştur
       const userResult = await transaction.request()
-        .input('username', sql.NVarChar, name) // USERNAME kolonuna isim
-        .input('surname', sql.NVarChar, surname)
-        .input('mail', sql.NVarChar, mail)
-        .query('INSERT INTO [mosuser].[USERS] (USERNAME, SURNAME, MAIL, REC_DATE, STATUS) OUTPUT INSERTED.ID VALUES (@username, @surname, @mail, GETDATE(), 1)');
+        .input('username', sql.NVarChar, username)
+        .query('INSERT INTO [mosuser].[Users] (USER_NAME) OUTPUT INSERTED.ID VALUES (@username)');
       
       const userId = userResult.recordset[0].ID;
-
-      // 3. LOGIN_INFO tablosuna kaydet
+      
+      // Login info ekle
       await transaction.request()
         .input('userId', sql.Int, userId)
         .input('username', sql.NVarChar, username)
         .input('password', sql.NVarChar, hashedPassword)
         .query('INSERT INTO [mosuser].[LOGIN_INFO] (USER_ID, USER_NAME, PASSWORD) VALUES (@userId, @username, @password)');
-
+      
       await transaction.commit();
       res.status(201).json({ message: 'Kullanıcı başarıyla kaydedildi.' });
       
-    } catch (err) {
+    } catch (innerErr) {
       await transaction.rollback();
-      throw err;
+      throw innerErr;
     }
-  } catch (err) {
-    console.error('Kayıt hatası:', err);
-    res.status(500).json({ message: 'Kayıt sırasında bir hata oluştu.' });
+  } catch (_err) {
+    res.status(500).json({ message: 'Kayıt sırasında bir sunucu hatası oluştu.' });
   }
 });
->>>>>>> 904e9564da8463057862b46e223b41ec4fe1fe72
 
 // [POST] /api/login 
 app.post('/api/login', async (req, res) => {
@@ -129,7 +120,7 @@ app.post('/api/login', async (req, res) => {
   if (!username || !password) return res.status(400).json({ message: 'Kullanıcı adı ve şifre gereklidir.' });
   try {
     const pool = await poolPromise;
-    const result = await pool.request().input('user_name', sql.NVarChar, username).query('SELECT u.ID as UserID, li.PASSWORD FROM [mosuser].[LOGIN_INFO] li JOIN [mosuser].[USERS] u ON li.USER_ID = u.ID WHERE li.USER_NAME = @user_name');
+    const result = await pool.request().input('user_name', sql.NVarChar, username).query('SELECT u.ID as UserID, li.PASSWORD FROM [mosuser].[LOGIN_INFO] li JOIN [mosuser].[Users] u ON li.USER_ID = u.ID WHERE li.USER_NAME = @user_name');
     if (result.recordset.length === 0) return res.status(401).json({ message: 'Geçersiz kullanıcı adı veya şifre.' });
 
     const user = result.recordset[0];
@@ -167,7 +158,7 @@ app.get('/api/templates', requireAuth, async (req, res) => {
     const pool = await poolPromise;
     const result = await pool.request().input('userId', sql.Int, userId).query('SELECT ID, TEMPLATE_NAME FROM [mosuser].[TEMPLATES] WHERE USER_ID = @userId ORDER BY ID DESC');
     res.status(200).json(result.recordset);
-  } catch (err) {
+  } catch (_err) {
     res.status(500).json({ message: 'Şablon listesi getirilemedi.' });
   }
 });
@@ -175,30 +166,15 @@ app.get('/api/templates', requireAuth, async (req, res) => {
 app.get('/api/templates/:id', requireAuth, async (req, res) => {
   const userId = req.user.id;
   const templateId = req.params.id;
-  console.log(`DEBUG - Template ${templateId} istendi, kullanıcı: ${userId}`);
-  
   try {
     const pool = await poolPromise;
-    
-    // Önce template'in varlığını kontrol et
-    const checkResult = await pool.request()
-      .input('templateId', sql.Int, templateId)
-      .query('SELECT ID, USER_ID, TEMPLATE_NAME FROM [mosuser].[TEMPLATES] WHERE ID = @templateId');
-    
-    console.log('DEBUG - Template check result:', checkResult.recordset);
-    
-    const result = await pool.request()
-      .input('userId', sql.Int, userId)
-      .input('templateId', sql.Int, templateId)
-      .query('SELECT JSON FROM [mosuser].[TEMPLATES] WHERE ID = @templateId AND USER_ID = @userId');
-    
+    const result = await pool.request().input('userId', sql.Int, userId).input('templateId', sql.Int, templateId).query('SELECT JSON FROM [mosuser].[TEMPLATES] WHERE ID = @templateId AND USER_ID = @userId');
     if (result.recordset.length > 0) {
       res.status(200).json(JSON.parse(result.recordset[0].JSON));
     } else {
       res.status(404).json({ message: 'Şablon bulunamadı veya bu şablona erişim yetkiniz yok.' });
     }
-  } catch (err) {
-    console.error('Template getirme hatası:', err);
+  } catch (_err) {
     res.status(500).json({ message: 'Şablon yüklenemedi.' });
   }
 });
@@ -209,191 +185,17 @@ app.post('/api/templates', requireAuth, async (req, res) => {
   if (!templateName || !jsonData) {
     return res.status(400).json({ message: 'Şablon adı ve akış verisi gereklidir.' });
   }
-  
-  // İsim benzersizlik kontrolü
+  const jsonDataString = JSON.stringify(jsonData);
   try {
     const pool = await poolPromise;
-    const nameCheck = await pool.request()
-      .input('userId', sql.Int, userId)
-      .input('templateName', sql.NVarChar, templateName)
-      .query('SELECT ID FROM [mosuser].[TEMPLATES] WHERE USER_ID = @userId AND TEMPLATE_NAME = @templateName');
-    
-    if (nameCheck.recordset.length > 0) {
-      return res.status(400).json({ message: 'Bu isimde bir akış zaten mevcut.' });
-    }
-
-    const jsonDataString = JSON.stringify(jsonData);
-    const result = await pool.request()
-      .input('userId', sql.Int, userId)
-      .input('templateName', sql.NVarChar, templateName)
-      .input('json', sql.NVarChar, jsonDataString)
-      .query('INSERT INTO [mosuser].[TEMPLATES] (USER_ID, TEMPLATE_NAME, JSON) OUTPUT INSERTED.ID VALUES (@userId, @templateName, @json)');
-    
-    res.status(201).json({ message: 'Akış başarıyla kaydedildi.', templateId: result.recordset[0].ID });
-  } catch (err) {
-    console.error('Template kaydetme hatası:', err);
+    await pool.request()
+      .input('userId', sql.Int, userId).input('templateName', sql.NVarChar, templateName).input('json', sql.NVarChar, jsonDataString)
+      .query('INSERT INTO [mosuser].[TEMPLATES] (USER_ID, TEMPLATE_NAME, JSON) VALUES (@userId, @templateName, @json)');
+    res.status(201).json({ message: 'Akış başarıyla kaydedildi.' });
+  } catch (_err) {
     res.status(500).json({ message: 'Akış kaydedilirken bir hata oluştu.' });
   }
 });
-
-// [PUT] /api/templates/:id - Template güncelle
-app.put('/api/templates/:id', requireAuth, async (req, res) => {
-  const userId = req.user.id;
-  const templateId = req.params.id;
-  const { templateName, jsonData } = req.body;
-  
-  if (!templateName || !jsonData) {
-    return res.status(400).json({ message: 'Şablon adı ve akış verisi gereklidir.' });
-  }
-
-  try {
-    const pool = await poolPromise;
-    
-    // Template'in kullanıcıya ait olup olmadığını kontrol et
-    const ownerCheck = await pool.request()
-      .input('userId', sql.Int, userId)
-      .input('templateId', sql.Int, templateId)
-      .query('SELECT ID FROM [mosuser].[TEMPLATES] WHERE ID = @templateId AND USER_ID = @userId');
-    
-    if (ownerCheck.recordset.length === 0) {
-      return res.status(404).json({ message: 'Template bulunamadı veya erişim yetkiniz yok.' });
-    }
-
-    // İsim benzersizlik kontrolü (aynı ID hariç)
-    const nameCheck = await pool.request()
-      .input('userId', sql.Int, userId)
-      .input('templateName', sql.NVarChar, templateName)
-      .input('templateId', sql.Int, templateId)
-      .query('SELECT ID FROM [mosuser].[TEMPLATES] WHERE USER_ID = @userId AND TEMPLATE_NAME = @templateName AND ID != @templateId');
-    
-    if (nameCheck.recordset.length > 0) {
-      return res.status(400).json({ message: 'Bu isimde başka bir akış zaten mevcut.' });
-    }
-
-    const jsonDataString = JSON.stringify(jsonData);
-    await pool.request()
-      .input('userId', sql.Int, userId)
-      .input('templateId', sql.Int, templateId)
-      .input('templateName', sql.NVarChar, templateName)
-      .input('json', sql.NVarChar, jsonDataString)
-      .query('UPDATE [mosuser].[TEMPLATES] SET TEMPLATE_NAME = @templateName, JSON = @json WHERE ID = @templateId AND USER_ID = @userId');
-
-    res.status(200).json({ message: 'Akış başarıyla güncellendi.' });
-  } catch (err) {
-    console.error('Template güncelleme hatası:', err);
-    res.status(500).json({ message: 'Akış güncellenirken bir hata oluştu.' });
-  }
-});
-
-// --- FLOW EXECUTION ENDPOINT'LERİ ---
-
-// [POST] /api/templates/:id/execute - Template akışını çalıştır
-app.post('/api/templates/:id/execute', requireAuth, async (req, res) => {
-  const userId = req.user.id;
-  const templateId = req.params.id;
-  
-  try {
-    const pool = await poolPromise;
-    
-    // Template'i ve JSON verisini getir
-    const templateResult = await pool.request()
-      .input('userId', sql.Int, userId)
-      .input('templateId', sql.Int, templateId)
-      .query('SELECT TEMPLATE_NAME, JSON FROM [mosuser].[TEMPLATES] WHERE ID = @templateId AND USER_ID = @userId');
-    
-    if (templateResult.recordset.length === 0) {
-      return res.status(404).json({ message: 'Template bulunamadı veya erişim yetkiniz yok.' });
-    }
-
-    const templateData = JSON.parse(templateResult.recordset[0].JSON);
-    const templateName = templateResult.recordset[0].TEMPLATE_NAME;
-    
-    console.log(`🚀 "${templateName}" akışı çalıştırılıyor...`);
-    
-    // Node'ları sırala ve çalıştır
-    const executionResult = await executeFlowNodes(templateData.nodes, userId, pool);
-    
-    res.status(200).json({
-      message: 'Akış başarıyla çalıştırıldı.',
-      templateName: templateName,
-      result: executionResult
-    });
-    
-  } catch (err) {
-    console.error('Flow execution hatası:', err);
-    res.status(500).json({ message: 'Akış çalıştırılırken hata oluştu.' });
-  }
-});
-
-// Flow node'larını işleyen ana fonksiyon
-async function executeFlowNodes(nodes, userId, pool) {
-  const results = [];
-  
-  for (const node of nodes) {
-    console.log(`📋 Node işleniyor: ${node.type} - ${node.id}`);
-    
-    try {
-      let nodeResult;
-      
-      switch (node.type) {
-        case 'bapi':
-          nodeResult = await processBapiNode(node, userId, pool);
-          break;
-        case 'query': 
-          nodeResult = await processQueryNode(node, userId, pool);
-          break;
-        case 'file':
-          nodeResult = await processFileNode(node, userId, pool);
-          break;
-        default:
-          nodeResult = { type: node.type, status: 'skipped', message: 'Desteklenmeyen node tipi' };
-      }
-      
-      results.push({ nodeId: node.id, ...nodeResult });
-    } catch (err) {
-      console.error(`Node ${node.id} işlenirken hata:`, err);
-      results.push({ 
-        nodeId: node.id, 
-        status: 'error', 
-        message: err.message 
-      });
-    }
-  }
-  
-  return results;
-}
-
-// BAPI node işleme fonksiyonu
-async function processBapiNode(node, userId, pool) {
-  const config = node.data || {};
-  
-  return {
-    type: 'bapi',
-    status: 'success',
-    message: `BAPI ${config.functionName || 'unknown'} çağrıldı`,
-    data: { rows: 0 } // Simülasyon
-  };
-}
-
-// Query node işleme fonksiyonu  
-async function processQueryNode(node, userId, pool) {
-  return {
-    type: 'query',
-    status: 'success', 
-    message: 'Query başarıyla çalıştırıldı',
-    data: { rows: 0 }
-  };
-}
-
-// File node işleme fonksiyonu
-async function processFileNode(node, userId, pool) {
-  return {
-    type: 'file',
-    status: 'success',
-    message: 'Dosya başarıyla oluşturuldu', 
-    data: { path: '/tmp/output.xlsx' }
-  };
-}
 
 
 // --- SOURCES YÖNETİMİ ENDPOINT'LERİ ---
@@ -401,25 +203,11 @@ async function processFileNode(node, userId, pool) {
 // [GET] /api/sources - Kullanıcının kaydettiği source'ları listele
 app.get('/api/sources', requireAuth, async (req, res) => {
   const userId = req.user.id;
-  const { type } = req.query; // Query parameter ile type filtresi
-  
   try {
     const pool = await poolPromise;
-    let query = 'SELECT ID, TYPE, NAME FROM [mosuser].[SOURCE] WHERE USER_ID = @userId';
-    
-    if (type) {
-      query += ' AND TYPE = @type';
-    }
-    
-    query += ' ORDER BY ID DESC';
-    
-    const request = pool.request().input('userId', sql.Int, userId);
-    
-    if (type) {
-      request.input('type', sql.NVarChar, type);
-    }
-    
-    const result = await request.query(query);
+    const result = await pool.request()
+      .input('userId', sql.Int, userId)
+      .query('SELECT ID, TYPE, NAME FROM [mosuser].[SOURCE] WHERE USER_ID = @userId ORDER BY ID DESC');
     res.status(200).json(result.recordset);
   } catch (err) {
     console.error('Sources listesi getirme hatası:', err);
@@ -487,14 +275,14 @@ app.post('/api/sources', requireAuth, async (req, res) => {
 // --- DÜZELTİLMİŞ: POST /api/sources/test (bağlantı testi) ---
 // açıklama: dbConnectiontest önce tanımlanır, pool üst scope'ta tutulur, hata durumunda JSON dönülür
 app.post('/api/sources/test', requireAuth, async (req, res) => {
-  const { details, type, source } = req.body;
+  const { details, type } = req.body;
 
   if (!details) return res.status(400).json({ message: 'Details alanı gereklidir.' });
 
   let PoolTestConnection; // finally içinde erişebilmek için üst scope
   //MSSQL bağlantı
   const dbConnectionMSSQL = {
-    user: details.user,
+    user: details.user || details.username || details.User || details.Username,
     password: details.password,
     server: details.host,
     database: details.database,
@@ -508,14 +296,14 @@ app.post('/api/sources/test', requireAuth, async (req, res) => {
 
   // options örneği: host + port ayrı kullanımı (en yaygın)
   const dbConnectiontestHANADB = {
-    host: details.host,   // HANA host
-    port: details.port,   // servis portu
-    uid: details.user,   // kullanıcı
-    pwd: details.password,  // parola (prod'ta secret manager kullan)           
-    encrypt: true,        // TLS kullan
-    sslValidateCertificate: false,   // self-signed test için (prod'ta true yap)
-    connectTimeout: 15000 // ms
-
+    serverNode: `${details.host}:${details.port || '443'}`, // HANA Cloud format
+    uid: details.user || details.username,   // kullanıcı
+    pwd: details.password,  // parola           
+    encrypt: true,        // SSL zorunlu
+    sslValidateCertificate: false,   // HANA Cloud için
+    connectTimeout: 30000, // HANA Cloud için daha uzun timeout
+    sslTrustStore: '',    // HANA Cloud için
+    sslHostNameInCertificate: '*'  // HANA Cloud wildcard sertifikaları için
   }
 
 
@@ -628,6 +416,17 @@ app.delete('/api/sources/:id', requireAuth, async (req, res) => {
     await transaction.begin();
 
     try {
+      // Ownership kontrolü
+      const ownership = await transaction.request()
+        .input('sourceId', sql.Int, sourceId)
+        .input('userId', sql.Int, userId)
+        .query('SELECT ID FROM [mosuser].[SOURCE] WHERE ID = @sourceId AND USER_ID = @userId');
+
+      if (!ownership.recordset || ownership.recordset.length === 0) {
+        await transaction.rollback();
+        return res.status(403).json({ message: 'Bu kaynağı silme yetkiniz yok.' });
+      }
+
       // 2a) SOURCE_INFO tablosundaki ilişkili satırları sil
       await transaction.request()
         .input('sourceId', sql.Int, sourceId)
@@ -636,7 +435,8 @@ app.delete('/api/sources/:id', requireAuth, async (req, res) => {
       // 2b) SOURCE tablosundan kaydı sil
       await transaction.request()
         .input('sourceId', sql.Int, sourceId)
-        .query('DELETE FROM [mosuser].[SOURCE] WHERE ID = @sourceId');
+        .input('userId', sql.Int, userId)
+        .query('DELETE FROM [mosuser].[SOURCE] WHERE ID = @sourceId AND USER_ID = @userId');
 
       // 2c) Commit
       await transaction.commit();
@@ -657,6 +457,406 @@ app.delete('/api/sources/:id', requireAuth, async (req, res) => {
     return res.status(500).json({ message: 'Source silme isteği işlenemedi.' });
   }
 });
+
+// --- YENİ ENDPOINT'LER: Schema, Table, Column listesi için ---
+
+// [POST] /api/sources/schemas - Bağlantıdan schema listesi al
+app.post('/api/sources/schemas', requireAuth, async (req, res) => {
+  const { details, type } = req.body;
+  
+  console.log('🔍 Schema endpoint called:', { type, details: details ? 'EXISTS' : 'NULL' });
+  
+  if (!details) {
+    console.error('❌ Details missing from request body');
+    return res.status(400).json({ message: 'Details alanı gereklidir.' });
+  }
+
+  let connection;
+  try {
+    if (type === "HANA") {
+      connection = await new hana.createConnection({
+        serverNode: `${details.host}:${details.port || '443'}`,
+        uid: details.user,
+        pwd: details.password,
+        encrypt: true,
+        sslValidateCertificate: false,
+        connectTimeout: 30000,
+        sslHostNameInCertificate: '*'
+      }).connect();
+      
+      const result = await connection.exec("SELECT SCHEMA_NAME FROM SCHEMAS WHERE HAS_PRIVILEGES='TRUE' ORDER BY SCHEMA_NAME");
+      const schemas = result.map(row => row.SCHEMA_NAME);
+      res.json({ schemas });
+      
+    } else if (type === "MSSQL") {
+    // Test connection ile tamamen aynı config kullan
+    const testConnectionMSSQL = {
+    user: details.user || details.username || details.User || details.Username,
+    password: details.password,
+    server: details.host,
+    database: details.database,
+      options: {
+        encrypt: true,
+        trustServerCertificate: true,
+    }
+    };
+    
+    console.log('🔍 MSSQL exact test config:', {
+    user: testConnectionMSSQL.user,
+    server: testConnectionMSSQL.server,
+    database: testConnectionMSSQL.database,
+    password: testConnectionMSSQL.password ? 'EXISTS' : 'NULL'
+    });
+    
+    connection = await new sql.ConnectionPool(testConnectionMSSQL).connect();
+      console.log('✅ MSSQL destination schema connection successful');
+      const result = await connection.request().query("SELECT name as schema_name FROM sys.schemas WHERE name NOT IN ('sys', 'INFORMATION_SCHEMA') ORDER BY name");
+      const schemas = result.recordset.map(row => row.schema_name);
+      res.json({ schemas });
+    }
+  } catch (err) {
+    console.error('❌ Schema listesi hatası:', err.message || err);
+    res.status(500).json({ message: `Schema bilgileri alınamadı: ${err.message}` });
+  } finally {
+    if (connection) {
+      try { await connection.close(); } catch (e) { console.error('Connection close error:', e); }
+    }
+  }
+});
+
+// [POST] /api/sources/tables - Schema'dan table listesi al
+app.post('/api/sources/tables', requireAuth, async (req, res) => {
+  const { details, type, schema } = req.body;
+  
+  if (!details || !schema) return res.status(400).json({ message: 'Details ve schema gereklidir.' });
+
+  let connection;
+  try {
+    if (type === "HANA") {
+      connection = await new hana.createConnection({
+        serverNode: `${details.host}:${details.port || '443'}`,
+        uid: details.user,
+        pwd: details.password,
+        encrypt: true,
+        sslValidateCertificate: false,
+        connectTimeout: 30000,
+        sslHostNameInCertificate: '*'
+      }).connect();
+      
+      const result = await connection.exec(`SELECT TABLE_NAME FROM TABLES WHERE SCHEMA_NAME = '${schema}' ORDER BY TABLE_NAME`);
+      const tables = result.map(row => row.TABLE_NAME);
+      res.json({ tables });
+      
+    } else if (type === "MSSQL") {
+    console.log('🔍 Using exact test connection config');
+    
+    // Test connection config'ini birebir kopyala
+    const testConfig = {
+    user: details.user || details.username,
+    password: details.password,
+      server: details.host,
+        database: details.database,
+        options: {
+          encrypt: true,
+          trustServerCertificate: true,
+        }
+      };
+      console.log('🔍 MSSQL config:', testConfig);
+      
+      connection = await new sql.ConnectionPool(testConfig).connect();
+      console.log('✅ MSSQL destination schema connection successful');
+      
+      const result = await connection.request().query(`SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '${schema}' AND TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME`);
+      const tables = result.recordset.map(row => row.TABLE_NAME);
+      res.json({ tables });
+    }
+  } catch (err) {
+    console.error('Table listesi hatası:', err);
+    res.status(500).json({ message: 'Table bilgileri alınamadı.' });
+  } finally {
+    if (connection) {
+      try { await connection.close(); } catch (e) { console.error('Connection close error:', e); }
+    }
+  }
+});
+
+// [POST] /api/sources/columns - Table'dan column listesi al
+app.post('/api/sources/columns', requireAuth, async (req, res) => {
+  const { details, type, schema, table } = req.body;
+  
+  if (!details || !schema || !table) return res.status(400).json({ message: 'Details, schema ve table gereklidir.' });
+
+  let connection;
+  try {
+    if (type === "HANA") {
+      connection = await new hana.createConnection({
+        serverNode: `${details.host}:${details.port || '443'}`,
+        uid: details.user,
+        pwd: details.password,
+        encrypt: true,
+        sslValidateCertificate: false,
+        connectTimeout: 30000,
+        sslHostNameInCertificate: '*'
+      }).connect();
+      
+      const result = await connection.exec(`SELECT COLUMN_NAME, DATA_TYPE_NAME, LENGTH, IS_NULLABLE FROM COLUMNS WHERE SCHEMA_NAME = '${schema}' AND TABLE_NAME = '${table}' ORDER BY POSITION`);
+      const columns = result.map(row => ({
+        name: row.COLUMN_NAME,
+        type: row.DATA_TYPE_NAME,
+        length: row.LENGTH,
+        nullable: row.IS_NULLABLE === 'TRUE'
+      }));
+      res.json({ columns });
+      
+    } else if (type === "MSSQL") {
+      connection = await new sql.ConnectionPool({
+        user: details.user || details.username || details.User || details.Username,
+        password: details.password,
+        server: details.host,
+        database: details.database,
+        options: { encrypt: true, trustServerCertificate: true }
+      }).connect();
+      
+      const result = await connection.request().query(`
+        SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE 
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = '${schema}' AND TABLE_NAME = '${table}' 
+        ORDER BY ORDINAL_POSITION
+      `);
+      const columns = result.recordset.map(row => ({
+        name: row.COLUMN_NAME,
+        type: row.DATA_TYPE,
+        length: row.CHARACTER_MAXIMUM_LENGTH,
+        nullable: row.IS_NULLABLE === 'YES'
+      }));
+      res.json({ columns });
+    }
+  } catch (err) {
+    console.error('Column listesi hatası:', err);
+    res.status(500).json({ message: 'Column bilgileri alınamadı.' });
+  } finally {
+    if (connection) {
+      try { await connection.close(); } catch (e) { console.error('Connection close error:', e); }
+    }
+  }
+});
+
+// [POST] /api/sources/preview - Seçilen kolonlardan örnek veri al
+app.post('/api/sources/preview', requireAuth, async (req, res) => {
+  const { details, type, schema, table, columns } = req.body;
+  
+  console.log('🔍 Preview endpoint called:', { type, schema, table, columns: columns?.length });
+  
+  if (!details || !schema || !table || !columns || columns.length === 0) {
+    return res.status(400).json({ message: 'Details, schema, table ve columns gereklidir.' });
+  }
+
+  let connection;
+  try {
+    if (type === "HANA") {
+      connection = await new hana.createConnection({
+        serverNode: `${details.host}:${details.port || '443'}`,
+        uid: details.user || details.username,
+        pwd: details.password,
+        encrypt: true,
+        sslValidateCertificate: false,
+        connectTimeout: 30000,
+        sslHostNameInCertificate: '*'
+      }).connect();
+      
+      const columnList = columns.join(', ');
+      const query = `SELECT TOP 20 ${columnList} FROM "${schema}"."${table}"`;
+      console.log('🔍 HANA Preview query:', query);
+      
+      const result = await connection.exec(query);
+      res.json({ data: result, rowCount: result.length });
+      
+    } else if (type === "MSSQL") {
+      connection = await new sql.ConnectionPool({
+        user: details.user || details.username || details.User || details.Username,
+        password: details.password,
+        server: details.host,
+        database: details.database,
+        options: { encrypt: true, trustServerCertificate: true }
+      }).connect();
+      
+      const columnList = columns.join(', ');
+      const query = `SELECT TOP 20 ${columnList} FROM [${schema}].[${table}]`;
+      console.log('🔍 MSSQL Preview query:', query);
+      
+      const result = await connection.request().query(query);
+      res.json({ data: result.recordset, rowCount: result.recordset.length });
+    }
+  } catch (err) {
+    console.error('❌ Preview hatası:', err.message || err);
+    res.status(500).json({ message: `Veri önizlemesi alınamadı: ${err.message}` });
+  } finally {
+    if (connection) {
+      try { await connection.close(); } catch (e) { console.error('Connection close error:', e); }
+    }
+  }
+});
+
+// --- DESTINATION İÇİN AYNI ENDPOINT'LER (schema/table/column) ---
+
+// [POST] /api/destination/schemas - Test connection ile aynı config  
+app.post('/api/destination/schemas', requireAuth, async (req, res) => {
+  const { details, type } = req.body;
+  
+  console.log('🔍 Destination schema endpoint called:', { type, details: details ? 'EXISTS' : 'NULL' });
+  
+  if (!details) {
+    console.error('❌ Details missing from request body');
+    return res.status(400).json({ message: 'Details alanı gereklidir.' });
+  }
+
+  let connection;
+  try {
+    if (type === "HANA") {
+      connection = await new hana.createConnection({
+        serverNode: `${details.host}:${details.port || '443'}`,
+        uid: details.user || details.username,
+        pwd: details.password,
+        encrypt: true,
+        sslValidateCertificate: false,
+        connectTimeout: 30000,
+        sslHostNameInCertificate: '*'
+      }).connect();
+      
+      const result = await connection.exec("SELECT SCHEMA_NAME FROM SCHEMAS WHERE HAS_PRIVILEGES='TRUE' ORDER BY SCHEMA_NAME");
+      const schemas = result.map(row => row.SCHEMA_NAME);
+      res.json({ schemas });
+      
+    } else if (type === "MSSQL") {
+      connection = await new sql.ConnectionPool({
+        user: details.user || details.username || details.User || details.Username,
+        password: details.password,
+        server: details.host,
+        database: details.database,
+        options: { encrypt: true, trustServerCertificate: true }
+      }).connect();
+      
+      const result = await connection.request().query("SELECT name as schema_name FROM sys.schemas WHERE name NOT IN ('sys', 'INFORMATION_SCHEMA') ORDER BY name");
+      const schemas = result.recordset.map(row => row.schema_name);
+      res.json({ schemas });
+    }
+  } catch (err) {
+    console.error('❌ Destination schema listesi hatası:', err.message || err);
+    res.status(500).json({ message: `Schema bilgileri alınamadı: ${err.message}` });
+  } finally {
+    if (connection) {
+      try { await connection.close(); } catch (e) { console.error('Connection close error:', e); }
+    }
+  }
+});
+
+// [POST] /api/destination/tables
+app.post('/api/destination/tables', requireAuth, async (req, res) => {
+  const { details, type, schema } = req.body;
+  
+  if (!details || !schema) return res.status(400).json({ message: 'Details ve schema gereklidir.' });
+
+  let connection;
+  try {
+    if (type === "HANA") {
+      connection = await new hana.createConnection({
+        serverNode: `${details.host}:${details.port || '443'}`,
+        uid: details.user || details.username,
+        pwd: details.password,
+        encrypt: true,
+        sslValidateCertificate: false,
+        connectTimeout: 30000,
+        sslHostNameInCertificate: '*'
+      }).connect();
+      
+      const result = await connection.exec(`SELECT TABLE_NAME FROM TABLES WHERE SCHEMA_NAME = '${schema}' ORDER BY TABLE_NAME`);
+      const tables = result.map(row => row.TABLE_NAME);
+      res.json({ tables });
+      
+    } else if (type === "MSSQL") {
+      connection = await new sql.ConnectionPool({
+        user: details.user || details.username || details.User || details.Username,
+        password: details.password,
+        server: details.host,
+        database: details.database,
+        options: { encrypt: true, trustServerCertificate: true }
+      }).connect();
+      
+      const result = await connection.request().query(`SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '${schema}' AND TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME`);
+      const tables = result.recordset.map(row => row.TABLE_NAME);
+      res.json({ tables });
+    }
+  } catch (err) {
+    console.error('Destination table listesi hatası:', err);
+    res.status(500).json({ message: 'Table bilgileri alınamadı.' });
+  } finally {
+    if (connection) {
+      try { await connection.close(); } catch (e) { console.error('Connection close error:', e); }
+    }
+  }
+});
+
+// [POST] /api/destination/columns
+app.post('/api/destination/columns', requireAuth, async (req, res) => {
+  const { details, type, schema, table } = req.body;
+  
+  if (!details || !schema || !table) return res.status(400).json({ message: 'Details, schema ve table gereklidir.' });
+
+  let connection;
+  try {
+    if (type === "HANA") {
+      connection = await new hana.createConnection({
+        serverNode: `${details.host}:${details.port || '443'}`,
+        uid: details.user || details.username,
+        pwd: details.password,
+        encrypt: true,
+        sslValidateCertificate: false,
+        connectTimeout: 30000,
+        sslHostNameInCertificate: '*'
+      }).connect();
+      
+      const result = await connection.exec(`SELECT COLUMN_NAME, DATA_TYPE_NAME, LENGTH, IS_NULLABLE FROM COLUMNS WHERE SCHEMA_NAME = '${schema}' AND TABLE_NAME = '${table}' ORDER BY POSITION`);
+      const columns = result.map(row => ({
+        name: row.COLUMN_NAME,
+        type: row.DATA_TYPE_NAME,
+        length: row.LENGTH,
+        nullable: row.IS_NULLABLE === 'TRUE'
+      }));
+      res.json({ columns });
+      
+    } else if (type === "MSSQL") {
+      connection = await new sql.ConnectionPool({
+        user: details.user || details.username || details.User || details.Username,
+        password: details.password,
+        server: details.host,
+        database: details.database,
+        options: { encrypt: true, trustServerCertificate: true }
+      }).connect();
+      
+      const result = await connection.request().query(`
+        SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE 
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = '${schema}' AND TABLE_NAME = '${table}' 
+        ORDER BY ORDINAL_POSITION
+      `);
+      const columns = result.recordset.map(row => ({
+        name: row.COLUMN_NAME,
+        type: row.DATA_TYPE,
+        length: row.CHARACTER_MAXIMUM_LENGTH,
+        nullable: row.IS_NULLABLE === 'YES'
+      }));
+      res.json({ columns });
+    }
+  } catch (err) {
+    console.error('Destination column listesi hatası:', err);
+    res.status(500).json({ message: 'Column bilgileri alınamadı.' });
+  } finally {
+    if (connection) {
+      try { await connection.close(); } catch (e) { console.error('Connection close error:', e); }
+    }
+  }
+});
+
 //popup sources details getirme
 
 
@@ -670,9 +870,15 @@ app.delete('/api/sources/:id', requireAuth, async (req, res) => {
 
 
 
-// --- DESTİNATİON ENDPOINT'LERİ ---
+// --- DESTINATION ENDPOINTS (DÜZELTİLMİŞ & YORUMLU) ---
 
-// [GET] /api/sources - Kullanıcının kaydettiği source'ları listele
+// NOT: Bu kod örneğinde `poolPromise` ve `sql` (mssql) zaten tanımlı olmalıdır.
+// Ayrıca requireAuth middleware'inin req.user.id verdiğini varsayıyorum.
+
+/**
+ * GET /api/destination
+ * Kullanıcının kayıtlı destination'larını listeler
+ */
 app.get('/api/destination', requireAuth, async (req, res) => {
   const userId = req.user.id;
   try {
@@ -680,24 +886,31 @@ app.get('/api/destination', requireAuth, async (req, res) => {
     const result = await pool.request()
       .input('userId', sql.Int, userId)
       .query('SELECT ID, TYPE, NAME FROM [mosuser].[DESTINATION] WHERE USER_ID = @userId ORDER BY ID DESC');
+    // result.recordset içerir: [{ ID, TYPE, NAME }, ...]
     res.status(200).json(result.recordset);
   } catch (err) {
-    console.error('Destination listesi getirme hatası:', err);
+    // Ayrıntılı log: hata mesajı + obje
+    console.error('Destination listesi getirme hatası:', err && err.message ? err.message : err, err);
     res.status(500).json({ message: 'Destination listesi getirilemedi.' });
   }
 });
 
-// [POST] /api/destination - Yeni destinationa kaydet
+/**
+ * POST /api/destination
+ * Yeni destination oluşturur
+ */
 app.post('/api/destination', requireAuth, async (req, res) => {
   const userId = req.user.id;
   const { name, type, details } = req.body;
 
+  // Basit validasyon
   if (!name || !type || !details) {
     return res.status(400).json({ message: 'Name, type ve details alanları gereklidir.' });
   }
 
+  // tip kontrolü (mesajı da güncelledim)
   if (!['HANA', 'SAP', 'MSSQL'].includes(type)) {
-    return res.status(400).json({ message: 'Type sadece HANA veya SAP olabilir.' });
+    return res.status(400).json({ message: 'Type sadece HANA, SAP veya MSSQL olabilir.' });
   }
 
   try {
@@ -707,70 +920,89 @@ app.post('/api/destination', requireAuth, async (req, res) => {
     await transaction.begin();
 
     try {
-      // 1. Source'u kaydet
+      // 1) DESTINATION tablosuna ekle ve inserted ID al
       const destinationResult = await transaction.request()
         .input('userId', sql.Int, userId)
-        .input('name', sql.NVarChar, name)
-        .input('type', sql.NVarChar, type)
-        .query('INSERT INTO [mosuser].[DESTİNATİON] (USER_ID, NAME, TYPE) OUTPUT INSERTED.ID VALUES (@userId, @name, @type)');
+        .input('name', sql.NVarChar(255), name)
+        .input('type', sql.NVarChar(50), type)
+        .query(`
+          INSERT INTO [mosuser].[DESTINATION] (USER_ID, NAME, TYPE)
+          OUTPUT INSERTED.ID
+          VALUES (@userId, @name, @type)
+        `);
 
       const destinationId = destinationResult.recordset[0].ID;
 
-      // 2. Details'leri kaydet
+      // 2) details objesindeki satırları DESTINATION_INFO tablosuna ekle
       for (const [property, value] of Object.entries(details)) {
-        if (property !== 'password' && value) { // Şifreleri kaydetme
-          await transaction.request()
-            .input('destinationId', sql.Int, destinationId)
-            .input('property', sql.NVarChar, property)
-            .input('value', sql.NVarChar, value)
-            .query('INSERT INTO [mosuser].[DESTINATION_INFO] (DESTINATION_ID, PROPERTY, VALUE) VALUES (@destinationId, @property, @value)');
-        }
+        if (!value) continue;              // boşsa atla
+
+        await transaction.request()
+          .input('destinationId', sql.Int, destinationId)
+          .input('property', sql.NVarChar(100), property)
+          .input('value', sql.NVarChar(2000), String(value))
+          .query(`
+            INSERT INTO [mosuser].[DESTINATION_INFO] (DESTINATION_ID, PROPERTY, VALUE)
+            VALUES (@destinationId, @property, @value)
+          `);
       }
 
       await transaction.commit();
-      res.status(201).json({ message: 'Destination başarıyla kaydedildi.', sourceId: sourceId });
+
+      // DÖNÜŞ: destinationId açıkça döndür
+      res.status(201).json({ message: 'Destination başarıyla kaydedildi.', destinationId });
 
     } catch (err) {
       await transaction.rollback();
+      // İç hata: ayrıntıyı logla ve üstteki catch'e at
+      console.error('Transaction içinde hata (insert destination):', err && err.message ? err.message : err, err);
       throw err;
     }
   } catch (err) {
-    console.error('Destination kaydetme hatası:', err);
+    console.error('Destination kaydetme hatası:', err && err.message ? err.message : err, err);
     res.status(500).json({ message: 'Destination kaydedilirken bir hata oluştu.' });
   }
 });
 
-// [GET] /api/destination/:id - Belirli bir source'un detaylarını getir
+/**
+ * GET /api/destination/:id
+ * Belirli bir destination'un detaylarını getirir (details dahil)
+ */
 app.get('/api/destination/:id', requireAuth, async (req, res) => {
   const userId = req.user.id;
-  const sourceId = req.params.id;
+  const destinationId = Number(req.params.id);
+
+  if (!destinationId) {
+    return res.status(400).json({ message: 'Geçersiz destination id.' });
+  }
 
   try {
     const pool = await poolPromise;
 
-    // Source'un kullanıcıya ait olup olmadığını kontrol et
+    // 1) Destination'un kullanıcıya ait olup olmadığını kontrol et (parametre isimleri doğru olmalı)
     const sourceResult = await pool.request()
       .input('userId', sql.Int, userId)
-      .input('destinationId', sql.Int, sourceId)
-      .query('SELECT ID, TYPE, NAME FROM [mosuser].[DESTINATION] WHERE ID = @destınatıonID AND USER_ID = @userId');
+      .input('destinationId', sql.Int, destinationId) // parametre adıyla placeholder aynı olmalı
+      .query('SELECT ID, TYPE, NAME FROM [mosuser].[DESTINATION] WHERE ID = @destinationId AND USER_ID = @userId');
 
-    if (sourceResult.recordset.length === 0) {
+    if (!sourceResult.recordset || sourceResult.recordset.length === 0) {
       return res.status(404).json({ message: 'Destination bulunamadı veya erişim yetkiniz yok.' });
     }
 
     const destination = sourceResult.recordset[0];
 
-    // Details'leri getir
+    // 2) Details'leri getir
     const detailsResult = await pool.request()
-      .input('destinationId', sql.Int, sourceId)
-      .query('SELECT PROPERTY, VALUE FROM [mosuser].[DESTINATION_INFO] WHERE DESTINATION_ID = @destination');
+      .input('destinationId', sql.Int, destinationId)
+      .query('SELECT PROPERTY, VALUE FROM [mosuser].[DESTINATION_INFO] WHERE DESTINATION_ID = @destinationId');
 
-    // Details'leri obje formatına çevir
+    // 3) Details'leri obje formatına çevir
     const details = {};
     detailsResult.recordset.forEach(row => {
       details[row.PROPERTY] = row.VALUE;
     });
 
+    // 4) Dönüş formatı
     res.status(200).json({
       id: destination.ID,
       name: destination.NAME,
@@ -779,13 +1011,267 @@ app.get('/api/destination/:id', requireAuth, async (req, res) => {
     });
 
   } catch (err) {
-    console.error('Destination detayları getirme hatası:', err);
+    console.error('Destination detayları getirme hatası:', err && err.message ? err.message : err, err);
     res.status(500).json({ message: 'Destination detayları getirilemedi.' });
   }
 });
 
+/**
+ * PUT /api/destination/:id
+ * (Opsiyonel ama frontend PUT gönderiyor; burada update implementasyonu)
+ * Destination ve details güncellemesi yapar.
+ */
+app.put('/api/destination/:id', requireAuth, async (req, res) => {
+  const userId = req.user.id;
+  const destinationId = Number(req.params.id);
+  const { name, type, details } = req.body;
+
+  if (!destinationId) return res.status(400).json({ message: 'Geçersiz id.' });
+  if (!name || !type || !details) return res.status(400).json({ message: 'Name, type ve details gerekli.' });
+
+  try {
+    const pool = await poolPromise;
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    try {
+      // 1) Ownership kontrolü
+      const ownership = await transaction.request()
+        .input('destinationId', sql.Int, destinationId)
+        .input('userId', sql.Int, userId)
+        .query('SELECT ID FROM [mosuser].[DESTINATION] WHERE ID = @destinationId AND USER_ID = @userId');
+
+      if (!ownership.recordset || ownership.recordset.length === 0) {
+        await transaction.rollback();
+        return res.status(403).json({ message: 'Bu kaynağı güncelleme yetkiniz yok.' });
+      }
+
+      // 2) Destination güncelle
+      await transaction.request()
+        .input('destinationId', sql.Int, destinationId)
+        .input('name', sql.NVarChar(255), name)
+        .input('type', sql.NVarChar(50), type)
+        .query('UPDATE [mosuser].[DESTINATION] SET NAME = @name, TYPE = @type WHERE ID = @destinationId');
+
+      // 3) Details: basit strateji => önce eski detayları sil, sonra yeniden ekle (alternatif: upsert)
+      await transaction.request()
+        .input('destinationId', sql.Int, destinationId)
+        .query('DELETE FROM [mosuser].[DESTINATION_INFO] WHERE DESTINATION_ID = @destinationId');
+
+      for (const [property, value] of Object.entries(details)) {
+        if (!value) continue;
+
+        await transaction.request()
+          .input('destinationId', sql.Int, destinationId)
+          .input('property', sql.NVarChar(100), property)
+          .input('value', sql.NVarChar(2000), String(value))
+          .query('INSERT INTO [mosuser].[DESTINATION_INFO] (DESTINATION_ID, PROPERTY, VALUE) VALUES (@destinationId, @property, @value)');
+      }
+
+      await transaction.commit();
+      res.status(200).json({ message: 'Destination başarıyla güncellendi.' });
+
+    } catch (err) {
+      await transaction.rollback();
+      console.error('Destination update transaction hatası:', err && err.message ? err.message : err, err);
+      throw err;
+    }
+
+  } catch (err) {
+    console.error('Destination güncelleme hatası:', err && err.message ? err.message : err, err);
+    res.status(500).json({ message: 'Destination güncellenirken hata oluştu.' });
+  }
+});
+
+/**
+ * DELETE /api/destination/:id
+ * Destination siler (ve bağlı details'leri)
+ */
+app.delete('/api/destination/:id', requireAuth, async (req, res) => {
+  const userId = req.user.id;
+  const destinationId = Number(req.params.id);
+
+  if (!destinationId) return res.status(400).json({ message: 'Geçersiz id.' });
+
+  try {
+    const pool = await poolPromise;
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    try {
+      // Ownership kontrolü
+      const ownership = await transaction.request()
+        .input('destinationId', sql.Int, destinationId)
+        .input('userId', sql.Int, userId)
+        .query('SELECT ID FROM [mosuser].[DESTINATION] WHERE ID = @destinationId AND USER_ID = @userId');
+
+      if (!ownership.recordset || ownership.recordset.length === 0) {
+        await transaction.rollback();
+        return res.status(403).json({ message: 'Bu kaynağı silme yetkiniz yok.' });
+      }
+
+      // önce details sil
+      await transaction.request()
+        .input('destinationId', sql.Int, destinationId)
+        .query('DELETE FROM [mosuser].[DESTINATION_INFO] WHERE DESTINATION_ID = @destinationId');
+
+      // sonra destination sil
+      await transaction.request()
+        .input('destinationId', sql.Int, destinationId)
+        .query('DELETE FROM [mosuser].[DESTINATION] WHERE ID = @destinationId');
+
+      await transaction.commit();
+      res.status(204).send(); // success, no content
+
+    } catch (err) {
+      await transaction.rollback();
+      console.error('Destination delete transaction hatası:', err && err.message ? err.message : err, err);
+      throw err;
+    }
+
+  } catch (err) {
+    console.error('Destination silme hatası:', err && err.message ? err.message : err, err);
+    res.status(500).json({ message: 'Destination silinirken hata oluştu.' });
+  }
+});
+
+// --- ŞABLON ÇALIŞTIRMA (YENİ ENDPOINT) ---
+app.post('/api/templates/:id/execute', requireAuth, async (req, res) => {
+  const userId = req.user.id;
+  const templateId = req.params.id;
+
+  let sourceConnection;
+  let destConnection;
+
+  try {
+    const pool = await poolPromise;
+    const templateResult = await pool.request()
+      .input('userId', sql.Int, userId)
+      .input('templateId', sql.Int, templateId)
+      .query('SELECT JSON FROM [mosuser].[TEMPLATES] WHERE ID = @templateId AND USER_ID = @userId');
+
+    if (templateResult.recordset.length === 0) {
+      return res.status(404).json({ message: 'Şablon bulunamadı veya bu şablonu çalıştırma yetkiniz yok.' });
+    }
+
+    const flowData = JSON.parse(templateResult.recordset[0].JSON);
+    const destNode = flowData.nodes.find(n => n.type === 'tableDestination');
+
+    if (!destNode || !destNode.data.transferConfig || !destNode.data.columnMappings) {
+      return res.status(400).json({ message: 'Akış JSON verisinde transfer yapılandırması veya kolon eşleşmesi eksik.' });
+    }
+
+    const { sourceConnection: sourceDetails, sourceTable, destinationConnection: destDetails, destinationTable: destTable } = destNode.data.transferConfig;
+    const columnMappings = destNode.data.columnMappings;
+    const sourceColumns = Object.keys(columnMappings);
+
+    // --- 1. Connect to SOURCE and fetch data ---
+    const sourceConfig = {
+        user: sourceDetails.username,
+        password: sourceDetails.password,
+        server: sourceDetails.host, // FIX: Map host to server
+        database: sourceDetails.database,
+        options: { encrypt: true, trustServerCertificate: true },
+    };
+    sourceConnection = await new sql.ConnectionPool(sourceConfig).connect();
+    const selectQuery = `SELECT ${sourceColumns.join(', ')} FROM ${sourceTable}`;
+    const sourceDataResult = await sourceConnection.request().query(selectQuery);
+    await sourceConnection.close();
+
+    if (sourceDataResult.recordset.length === 0) {
+      return res.status(200).json({ message: 'Kaynak tabloda veri bulunamadı. 0 satır aktarıldı.' });
+    }
+
+    // --- 2. Connect to DESTINATION, get schema, and perform bulk insert ---
+    const destConfig = {
+        user: destDetails.username,
+        password: destDetails.password,
+        server: destDetails.host, // FIX: Map host to server
+        database: destDetails.database,
+        options: { encrypt: true, trustServerCertificate: true },
+    };
+    destConnection = await new sql.ConnectionPool(destConfig).connect();
+
+    // --- Get destination table schema ---
+    const [destSchema, destTableName] = destTable.split('.');
+    const schemaQuery = `
+      SELECT COLUMN_NAME, DATA_TYPE
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table
+    `;
+    const destSchemaResult = await destConnection.request()
+      .input('schema', sql.NVarChar, destSchema)
+      .input('table', sql.NVarChar, destTableName)
+      .query(schemaQuery);
+
+    if (destSchemaResult.recordset.length === 0) {
+      throw new Error(`Hedef tablo '${destTable}' bulunamadı veya şeması okunamadı.`);
+    }
+
+    const destTypeMap = {};
+    destSchemaResult.recordset.forEach(row => {
+      destTypeMap[row.COLUMN_NAME] = row.DATA_TYPE;
+    });
+
+    const getSqlType = (sqlType) => {
+      const type = sqlType.toLowerCase();
+      if (type.includes('char')) return sql.NVarChar;
+      if (type.includes('int')) return sql.Int;
+      if (type.includes('decimal') || type.includes('numeric')) return sql.Decimal;
+      if (type.includes('float') || type.includes('real')) return sql.Float;
+      if (type.includes('date') || type.includes('time')) return sql.DateTime;
+      if (type.includes('bit')) return sql.Bit;
+      return sql.NVarChar; // Default
+    };
+
+    const table = new sql.Table(destTable);
+    table.create = false;
+
+    const destColumns = Object.values(columnMappings);
+    destColumns.forEach(colName => {
+      const dbType = destTypeMap[colName];
+      if (!dbType) throw new Error(`Hedef tabloda '${colName}' kolonu bulunamadı.`);
+      table.columns.add(colName, getSqlType(dbType));
+    });
+
+    sourceDataResult.recordset.forEach(sourceRow => {
+      const newRow = [];
+      destColumns.forEach((destColName, index) => {
+        const sourceCol = Object.keys(columnMappings).find(key => columnMappings[key] === destColName);
+        const value = sourceRow[sourceCol];
+        const destType = destTypeMap[destColName].toLowerCase();
+
+        if (value === null || value === undefined) {
+            newRow[index] = null; // Pass nulls through
+        } else if (destType.includes('int')) {
+            const num = parseInt(value, 10);
+            newRow[index] = isNaN(num) ? null : num; // If parsing fails, insert NULL.
+        } else {
+            // For any other destination type (NVarChar, DateTime, etc.), ensure the value is a string.
+            newRow[index] = String(value);
+        }
+      });
+      table.rows.add(...newRow);
+    });
+
+    const request = new sql.Request(destConnection);
+    const bulkResult = await request.bulk(table);
+    await destConnection.close();
+
+    res.status(200).json({ 
+      message: `Akış başarıyla çalıştırıldı. ${bulkResult.rowsAffected} satır hedefe aktarıldı.`
+    });
+
+  } catch (err) {
+    console.error(`Template ${templateId} çalıştırılırken hata:`, err);
+    res.status(500).json({ message: 'Akış çalıştırılırken bir sunucu hatası oluştu: ' + err.message });
+  } finally {
+    if (sourceConnection && sourceConnection.connected) await sourceConnection.close();
+    if (destConnection && destConnection.connected) await destConnection.close();
+  }
+});
 
 // --- Sunucuyu Dinlemeye Başla ---
-app.listen(port,'0.0.0.0', () => {
-  console.log(`🚀 Backend sunucusu http://localhost:${port} adresinde çalışıyor`);
+app.listen(PORT, () => {
+  console.log(`🚀 Backend sunucusu http://localhost:${PORT} adresinde çalışıyor`);
 });

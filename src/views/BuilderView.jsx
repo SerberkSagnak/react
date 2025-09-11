@@ -528,6 +528,8 @@ function Builder() {
         onClose={() => setEditingNodeId(null)} 
         nodeData={nodeToEdit} 
         onNodeDataChange={onNodeDataChange}
+        allNodes={flows[activeFlowId]?.nodes || []}
+        allEdges={flows[activeFlowId]?.edges || []}
       />
       <ConfirmDialog 
         isOpen={deleteConfirmation.isOpen} 

@@ -25,8 +25,8 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import BapiPopup from "../../popup/file_popup.jsx"; // popup component
 
 /**
- * Sources bileşeni
- * - /api/sources'dan liste çeker
+ * Destination bileşeni
+ * - /api/Destination'dan liste çeker
  * - Her satır için detay / edit / delete butonları gösterir
  * - Delete butonu onay alıp backend'e DELETE isteği gönderir
  *
@@ -36,14 +36,14 @@ import BapiPopup from "../../popup/file_popup.jsx"; // popup component
 
 const DestinationList = () => {
   // Kaynak listesi state'i
-  const [sources, setSources] = useState([]);
+  const [destination, setDestination] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Popup ile ilgili state'ler
   const [openPopup, setOpenPopup] = useState(false);
   const [popupType, setPopupType] = useState("");
-  const [selectedSource, setSelectedSource] = useState(null);
-
+  const [selectedDestination, setSelectedDestination] = useState(null);
+  const [fromDetails, setFromDetails] = useState(false);
   // Silme onayı / işlem state'leri
   const [confirmOpen, setConfirmOpen] = useState(false); // onay dialogu açık mı
   const [deletingId, setDeletingId] = useState(null); // şu anda silinmek üzere seçili id
@@ -57,8 +57,8 @@ const DestinationList = () => {
     return localStorage.getItem('authToken');
   };
 
-  // API'den sources listesini getir
-  const fetchSources = async () => {
+  // API'den Destination listesini getir
+  const fetchDestination = async () => {
     setLoading(true);
     try {
       const token = getAuthToken();
@@ -69,7 +69,7 @@ const DestinationList = () => {
       if (response.ok) {
         const data = await response.json();
         // Backend'den dönen formatı frontend objesine çevir
-        setSources(data.map(s => ({
+        setDestination(data.map(s => ({
           id: s.ID ?? s.id,                     // hem ID hem id'i destekle
           type: (s.TYPE ?? s.type ?? "").toLowerCase(), // tip küçük harfe çevir
           name: s.NAME ?? s.name ?? "İsimsiz",
@@ -77,11 +77,11 @@ const DestinationList = () => {
         })));
       } else {
         // 401/403 gibi durumlarda kullanıcı bilgilendirilebilir
-        console.error('Sources getirme hata kodu:', response.status);
+        console.error('Destination getirme hata kodu:', response.status);
         setSnackbar({ open: true, message: 'Kaynaklar alınamadı.', severity: 'error' });
       }
     } catch (err) {
-      console.error('Sources getirilemedi:', err);
+      console.error('Destination getirilemedi:', err);
       setSnackbar({ open: true, message: 'Sunucu ile bağlantı kurulamadı.', severity: 'error' });
     } finally {
       setLoading(false);
@@ -90,7 +90,7 @@ const DestinationList = () => {
 
   // Component ilk render olduğunda listeyi çek
   useEffect(() => {
-    fetchSources();
+    fetchDestination();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -120,12 +120,12 @@ const DestinationList = () => {
 
       if (res.status === 200 || res.status === 204) {
         // Başarılı -> UI'dan kaldır
-        setSources(prev => prev.filter(s => String(s.id) !== String(deletingId)));
+        setDestination(prev => prev.filter(s => String(s.id) !== String(deletingId)));
 
         // Eğer popup'ta şu an silinen kaynak açıksa popup'ı kapat
-        if (selectedSource && String(selectedSource.id) === String(deletingId)) {
+        if (selectedDestination && String(selectedDestination.id) === String(deletingId)) {
           setOpenPopup(false);
-          setSelectedSource(null);
+          setSelectedDestination(null);
         }
 
         setSnackbar({ open: true, message: 'Source başarıyla silindi.', severity: 'success' });
@@ -159,18 +159,18 @@ const DestinationList = () => {
   };
 
   // Detay veya edit butonuna tıklayınca popup açma
-  const handleDetails = async (source) => {
-
+  const handleDetails = async (destination) => {
+    setFromDetails(true);
     try {
       const token = getAuthToken();
-      const res = await fetch(`/api/destination/${encodeURIComponent(source.id)}`, {
+      const res = await fetch(`/api/destination/${encodeURIComponent(destination.id)}`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
 
       if (res.ok) {
         const data = await res.json();
         // data: { id, name, type, details: {host, port, ...} }
-        setSelectedSource(data);
+        setSelectedDestination(data);
         setPopupType(
           data.type === "HANA" ? "HANA" :
             data.type === "MSSQL" ? "MSSQL" :
@@ -212,7 +212,7 @@ const DestinationList = () => {
   return (
     <Box sx={{ p: 2 }}>
       <Typography variant="h5" sx={{ mb: 2 }}>
-        Set up a new sources
+        Set up a new destination
       </Typography>
 
       {/* Kart butonlar */}
@@ -239,7 +239,7 @@ const DestinationList = () => {
           </Box>
         ) : (
           <>
-            {sources.map((s) => (
+            {destination.map((s) => (
               <Box
                 key={s.id}
                 sx={{
@@ -266,7 +266,7 @@ const DestinationList = () => {
 
                 <Box sx={{ display: "flex", gap: 1 }}>
                   {/* Edit butonu */}
-                  <Tooltip title="Düzenle">
+                  <Tooltip title="Edit">
                     <IconButton
                       size="small"
                       color="primary"
@@ -282,7 +282,7 @@ const DestinationList = () => {
                   </Tooltip>
 
                   {/* Details butonu */}
-                  <Tooltip title="Detay">
+                  <Tooltip title="Details">
                     <IconButton
                       size="small"
                       color="info"
@@ -298,7 +298,7 @@ const DestinationList = () => {
                   </Tooltip>
 
                   {/* Delete butonu: eğer şu an bu id siliniyorsa spinner göster */}
-                  <Tooltip title="Sil">
+                  <Tooltip title="Delete">
                     <span> {/* span ile wrapper: disabled IconButton için tooltip çalışır */}
                       <IconButton
                         size="small"
@@ -323,9 +323,9 @@ const DestinationList = () => {
               </Box>
             ))}
 
-            {sources.length === 0 && (
+            {destination.length === 0 && (
               <Typography sx={{ textAlign: "center", color: "text.secondary", mt: 2 }}>
-                Henüz source yok.
+                Henüz destination yok.
               </Typography>
             )}
           </>
@@ -351,13 +351,19 @@ const DestinationList = () => {
       {/* Popup */}
       <BapiPopup
         open={openPopup}
-        setOpen={setOpenPopup}
-        page="destination"
+        setOpen={(val) => {
+          setOpenPopup(val);
+          if (!val) {
+            setFromDetails(false);   // 🔹 Popup kapanınca reset
+            setSelectedDestination(null); // 🔹 Eski datayı da temizle
+          }
+        }}
         type={popupType}
-        data={selectedSource}
-        onSave={() => fetchSources()} // Kaydetme sonrası listeyi yenile
+        page="destination"
+        data={selectedDestination}
+        fromDetails={fromDetails}
+        onSave={() => fetchDestination()}
       />
-
       {/* Snackbar bildirimleri */}
       <Snackbar
         open={snackbar.open}
