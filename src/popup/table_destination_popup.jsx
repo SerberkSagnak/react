@@ -42,7 +42,7 @@ export default function TableDestinationPopup({ open, setOpen, onSave, sourceDat
     const [connections, setConnections] = useState([]);
     const [selectedConnection, setSelectedConnection] = useState("");
     const [connectionData, setConnectionData] = useState(null);
-    const [connectionPassword, setConnectionPassword] = useState(""); // Password re-enter
+    const [connectionPassword, setConnectionPassword] = useState(""); // Passwo rd re-enter
     
     // Schema/Table/Column states
     const [schemas, setSchemas] = useState([]);

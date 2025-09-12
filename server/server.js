@@ -78,7 +78,7 @@ app.post('/api/register', async (req, res) => {
     // Kullanıcı var mı kontrol et
     const userCheck = await pool.request()
       .input('username', sql.NVarChar, username)
-      .query('SELECT u.ID FROM [mosuser].[Users] u JOIN [mosuser].[LOGIN_INFO] li ON u.ID = li.USER_ID WHERE li.USER_NAME = @username');
+      .query('SELECT ID FROM [mosuser].[Users] WHERE USER_NAME = @username');
     
     if (userCheck.recordset.length > 0) {
       return res.status(409).json({ message: 'Bu kullanıcı adı zaten kayıtlı.' });
@@ -110,7 +110,8 @@ app.post('/api/register', async (req, res) => {
       throw innerErr;
     }
   } catch (_err) {
-    res.status(500).json({ message: 'Kayıt sırasında bir sunucu hatası oluştu.' });
+    console.error("Register Endpoint Hatası:", _err);
+    res.status(500).json({ message: 'Kayıt sırasında bir sunucu hatası oluştu.', error: _err.message });
   }
 });
 
@@ -188,12 +189,55 @@ app.post('/api/templates', requireAuth, async (req, res) => {
   const jsonDataString = JSON.stringify(jsonData);
   try {
     const pool = await poolPromise;
-    await pool.request()
-      .input('userId', sql.Int, userId).input('templateName', sql.NVarChar, templateName).input('json', sql.NVarChar, jsonDataString)
-      .query('INSERT INTO [mosuser].[TEMPLATES] (USER_ID, TEMPLATE_NAME, JSON) VALUES (@userId, @templateName, @json)');
-    res.status(201).json({ message: 'Akış başarıyla kaydedildi.' });
-  } catch (_err) {
+    const result = await pool.request()
+      .input('userId', sql.Int, userId)
+      .input('templateName', sql.NVarChar, templateName)
+      .input('json', sql.NVarChar, jsonDataString)
+      .query('INSERT INTO [mosuser].[TEMPLATES] (USER_ID, TEMPLATE_NAME, JSON) OUTPUT INSERTED.ID VALUES (@userId, @templateName, @json)');
+    
+    const templateId = result.recordset[0].ID;
+    res.status(201).json({ 
+      message: 'Akış başarıyla kaydedildi.',
+      templateId: templateId
+    });
+  } catch (err) {
+    console.error('Template kaydetme hatası:', err);
     res.status(500).json({ message: 'Akış kaydedilirken bir hata oluştu.' });
+  }
+});
+
+// [PUT] /api/templates/:id - Template güncelleme
+app.put('/api/templates/:id', requireAuth, async (req, res) => {
+  const userId = req.user.id;
+  const templateId = req.params.id;
+  const { templateName, jsonData } = req.body;
+  
+  if (!templateName || !jsonData) {
+    return res.status(400).json({ message: 'Şablon adı ve akış verisi gereklidir.' });
+  }
+  
+  const jsonDataString = JSON.stringify(jsonData);
+  
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .input('userId', sql.Int, userId)
+      .input('templateId', sql.Int, templateId)
+      .input('templateName', sql.NVarChar, templateName)
+      .input('json', sql.NVarChar, jsonDataString)
+      .query('UPDATE [mosuser].[TEMPLATES] SET TEMPLATE_NAME = @templateName, JSON = @json WHERE ID = @templateId AND USER_ID = @userId');
+    
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).json({ message: 'Template bulunamadı veya yetkiniz yok.' });
+    }
+    
+    res.status(200).json({ 
+      message: 'Template başarıyla güncellendi.',
+      templateId: templateId
+    });
+  } catch (err) {
+    console.error('Template güncelleme hatası:', err);
+    res.status(500).json({ message: 'Template güncellenirken bir hata oluştu.' });
   }
 });
 
@@ -1227,40 +1271,134 @@ app.post('/api/templates/:id/execute', requireAuth, async (req, res) => {
     const table = new sql.Table(destTable);
     table.create = false;
 
-    const destColumns = Object.values(columnMappings);
+    // Debug: Column mapping ve type bilgilerini logla
+    console.log('DEBUG - Column Mappings:', columnMappings);
+    console.log('DEBUG - Dest Type Map:', destTypeMap);
+
+    // IDENTITY kolonları hariç tut - BCP otomatik handle eder
+    const identityQuery = `
+      SELECT COLUMN_NAME, IS_IDENTITY = COLUMNPROPERTY(OBJECT_ID(@schema + '.' + @table), COLUMN_NAME, 'IsIdentity')
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table AND COLUMNPROPERTY(OBJECT_ID(@schema + '.' + @table), COLUMN_NAME, 'IsIdentity') = 1
+    `;
+    const identityResult = await pool.request()
+      .input('schema', sql.NVarChar, destSchema)
+      .input('table', sql.NVarChar, destTableName)
+      .query(identityQuery);
+    
+    const identityColumns = identityResult.recordset.map(row => row.COLUMN_NAME);
+    console.log('DEBUG - Identity Columns:', identityColumns);
+
+    const destColumns = Object.values(columnMappings).filter(colName => !identityColumns.includes(colName));
+    console.log('DEBUG - Filtered Dest Columns (no identity):', destColumns);
+    
     destColumns.forEach(colName => {
       const dbType = destTypeMap[colName];
       if (!dbType) throw new Error(`Hedef tabloda '${colName}' kolonu bulunamadı.`);
-      table.columns.add(colName, getSqlType(dbType));
+      const sqlType = getSqlType(dbType);
+      console.log(`DEBUG - Adding column: ${colName}, DB Type: ${dbType}, SQL Type: ${sqlType.name || sqlType}`);
+      table.columns.add(colName, sqlType);
     });
 
-    sourceDataResult.recordset.forEach(sourceRow => {
+    sourceDataResult.recordset.forEach((sourceRow, rowIndex) => {
       const newRow = [];
       destColumns.forEach((destColName, index) => {
         const sourceCol = Object.keys(columnMappings).find(key => columnMappings[key] === destColName);
         const value = sourceRow[sourceCol];
         const destType = destTypeMap[destColName].toLowerCase();
 
+        if (rowIndex === 0) {
+          console.log(`DEBUG - Row processing (no identity): Source Col: ${sourceCol}, Dest Col: ${destColName}, Value: ${value}, Dest Type: ${destType}`);
+        }
+
         if (value === null || value === undefined) {
             newRow[index] = null; // Pass nulls through
         } else if (destType.includes('int')) {
             const num = parseInt(value, 10);
-            newRow[index] = isNaN(num) ? null : num; // If parsing fails, insert NULL.
+            newRow[index] = isNaN(num) ? null : num;
+        } else if (destType.includes('bit')) {
+            // Handle bit/boolean type
+            newRow[index] = value === true || value === 1 || value === '1' ? 1 : 0;
+        } else if (destType.includes('decimal') || destType.includes('numeric')) {
+            // Handle decimal/numeric types
+            const num = parseFloat(value);
+            newRow[index] = isNaN(num) ? null : num;
+        } else if (destType.includes('date') || destType.includes('time')) {
+            // Handle datetime types - convert to proper Date object
+            const date = new Date(value);
+            newRow[index] = isNaN(date.getTime()) ? null : date;
         } else {
-            // For any other destination type (NVarChar, DateTime, etc.), ensure the value is a string.
+            // For string types (NVarChar, etc.), ensure the value is a string.
             newRow[index] = String(value);
         }
       });
+      
+      if (rowIndex === 0) {
+        console.log(`DEBUG - Final row data:`, newRow);
+      }
+      
       table.rows.add(...newRow);
     });
 
-    const request = new sql.Request(destConnection);
-    const bulkResult = await request.bulk(table);
-    await destConnection.close();
+    // BCP yerine INSERT kullan - daha tolerant
+    console.log('DEBUG - Using INSERT instead of BCP');
+    
+    const transaction = new sql.Transaction(destConnection);
+    await transaction.begin();
+    
+    try {
+      let insertedRows = 0;
+      
+      for (const sourceRow of sourceDataResult.recordset) {
+        const placeholders = [];
+        const request = new sql.Request(transaction);
+        
+        destColumns.forEach((destColName, index) => {
+          const sourceCol = Object.keys(columnMappings).find(key => columnMappings[key] === destColName);
+          const value = sourceRow[sourceCol];
+          const destType = destTypeMap[destColName].toLowerCase();
+          
+          let processedValue;
+          if (value === null || value === undefined) {
+            processedValue = null;
+          } else if (destType.includes('int')) {
+            const num = parseInt(value, 10);
+            processedValue = isNaN(num) ? null : num;
+          } else if (destType.includes('bit')) {
+            processedValue = value === true || value === 1 || value === '1' ? 1 : 0;
+          } else if (destType.includes('decimal') || destType.includes('numeric')) {
+            const num = parseFloat(value);
+            processedValue = isNaN(num) ? null : num;
+          } else if (destType.includes('date') || destType.includes('time')) {
+            const date = new Date(value);
+            processedValue = isNaN(date.getTime()) ? null : date;
+          } else {
+            processedValue = String(value);
+          }
+          
+          const paramName = `param${index}`;
+          placeholders.push(`@${paramName}`);
+          request.input(paramName, getSqlType(destTypeMap[destColName]), processedValue);
+        });
+        
+        const insertQuery = `INSERT INTO ${destTable} (${destColumns.map(col => `[${col}]`).join(', ')}) VALUES (${placeholders.join(', ')})`;
+        await request.query(insertQuery);
+        insertedRows++;
+      }
+      
+      await transaction.commit();
+      console.log(`DEBUG - Successfully inserted ${insertedRows} rows using INSERT`);
+      
+      await destConnection.close();
 
-    res.status(200).json({ 
-      message: `Akış başarıyla çalıştırıldı. ${bulkResult.rowsAffected} satır hedefe aktarıldı.`
-    });
+      res.status(200).json({ 
+        message: `Akış başarıyla çalıştırıldı. ${insertedRows} satır hedefe aktarıldı.`
+      });
+    } catch (insertError) {
+      await transaction.rollback();
+      await destConnection.close();
+      throw insertError;
+    }
 
   } catch (err) {
     console.error(`Template ${templateId} çalıştırılırken hata:`, err);

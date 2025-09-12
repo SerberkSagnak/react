@@ -35,7 +35,8 @@ import CloseIcon from "@mui/icons-material/Close";
  * - onSave: fn -> kaydetme sonrası parent'a dönen callback
  * - page: string -> "sources" or "destination" to determine API endpoint
  */
-export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data, page = "sources" }) {
+export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data, page, fromDetails }) {
+
     // --- common states ---
     const [testing, setTesting] = useState(false);
     const [testResult, setTestResult] = useState(null);
@@ -68,7 +69,6 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data, p
     const [hanaPort, setHanaPort] = useState("");
 
     // Yeni state'ler: Schema, Table, Column seçimi için
-    const [connectionSuccess, setConnectionSuccess] = useState(false);
     const [schemas, setSchemas] = useState([]);
     const [selectedSchema, setSelectedSchema] = useState("");
     const [tables, setTables] = useState([]);
@@ -81,49 +81,48 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data, p
 
     // Popup açıldığında gelen datayı forma doldur
     useEffect(() => {
-        if (open && data) {
-            setSourceName(data.name || "");
-
-            if (type === "SAP") {
-                setSapHost(data.details?.host || "");
-                setSapInstance(data.details?.instance || "");
-                setSapSysnr(data.details?.sysnr || data.details?.Sysnr || "");
-                setSapLanguage(data.details?.language || "");
-                setSapUser(data.details?.user || "");
-                setSapPassword(""); // güvenlik için boş bırak
-                // Diğerleri temizle
-                setHanaHost(""); setHanaUsername(""); setHanaPassword(""); setHanaPort(""); setHanaSchema("");
-                setMssqlHost(""); setMssqlIp(""); setMssqlPort(""); setMssqlDatabase(""); setMssqlUsername(""); setMssqlPassword("");
-            } else if (type === "MSSQL") {
-                setMssqlHost(data.details?.host || "");
-                setMssqlIp(data.details?.ip || "");
-                setMssqlPort(data.details?.port || "");
-                setMssqlDatabase(data.details?.database || "");
-                setMssqlUsername(data.details?.user || data.details?.username || "");
-                setMssqlPassword(""); // güvenlik için boş bırak
-                // Diğerleri temizle
-                setSapHost(""); setSapInstance(""); setSapSysnr(""); setSapLanguage(""); setSapUser(""); setSapPassword("");
-                setHanaHost(""); setHanaPort(""); setHanaUsername(""); setHanaPassword(""); setHanaSchema("");
-            } else { // HANA
-                setHanaHost(data.details?.host || "");
-                setHanaPort(data.details?.port || "");
-                setHanaUsername(data.details?.user || data.details?.username || "");
-                setHanaPassword(""); // güvenlik için boş bırak
-                setHanaSchema(data.details?.schema || "");
-                // Diğerleri temizle
-                setSapHost(""); setSapInstance(""); setSapSysnr(""); setSapLanguage(""); setSapUser(""); setSapPassword("");
-                setMssqlHost(""); setMssqlIp(""); setMssqlPort(""); setMssqlDatabase(""); setMssqlUsername(""); setMssqlPassword("");
+            if (open) {
+                if (fromDetails && data) {
+                    // Details → kutuları data ile doldur
+                    
+                    if (type === "SAP") {
+                        setSapHost(data.details?.host || "");
+                        setSapInstance(data.details?.instance || "");
+                        setSapSysnr(data.details?.Sysnr || "");
+                        setSapLanguage(data.details?.language || "");
+                        setSapUser(data.details?.user || "");
+                        setSapPassword(data.details?.password || "");
+                    } else if (type === "MSSQL") {
+                        setMssqlHost(data.details?.host || "");
+                        setMssqlIp(data.details?.ip || "");
+                        setMssqlPort(data.details?.port || "");
+                        setMssqlDatabase(data.details?.database || "");
+                        setMssqlUsername(data.details?.username || "");
+                        setMssqlPassword(data.details?.password || "");
+                    } else if (type === "HANA") {
+                        setHanaHost(data.details?.host || "");
+                        setHanaPort(data.details?.port || "");
+                        setHanaUsername(data.details?.username || "");
+                        setHanaPassword(data.details?.password || "");
+                        setHanaSchema(data.details?.schema || "");
+                    }
+                } else {
+                    // Yeni ekleme → tüm alanları sıfırla
+                  
+                    setSapHost(""); setSapInstance(""); setSapSysnr(""); setSapLanguage(""); setSapUser(""); setSapPassword("");
+                    setHanaHost(""); setHanaPort(""); setHanaUsername(""); setHanaPassword(""); setHanaSchema("");
+                    setMssqlHost(""); setMssqlIp(""); setMssqlPort(""); setMssqlDatabase(""); setMssqlUsername(""); setMssqlPassword("");
+                }
             }
-        }
-
-        if (!open) {
-            // reset state when popup closes
-            setTesting(false);
-            setSaving(false);
-            setTestResult(null);
-        }
-    }, [open, data, type]);
-
+    
+            if (!open) {
+                setTesting(false);
+                setSaving(false);
+                setTestResult(null);
+            }
+        }, [open, fromDetails, data, type]);
+    
+    
     // Validation functions
     const validateSAP = () =>
         sourceName.trim() &&
@@ -201,7 +200,7 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data, p
             if (response.ok) {
                 setTestResult({ success: true, message: result.message || 'Bağlantı testi başarılı.' });
                 setSnackbar({ open: true, severity: 'success', message: result.message || 'Bağlantı testi başarılı.' });
-                setConnectionSuccess(true);
+        
                 
                 // Başarılı bağlantıdan sonra schema listesini getir (sadece HANA ve MSSQL için)
                 if (type === "HANA" || type === "MSSQL") {
@@ -486,125 +485,123 @@ export default function BapiPopup({ open, setOpen, type = "SAP", onSave, data, p
                 </Box>
 
                 {/* SAP / HANA / MSSQL Formları */}
-                {type === "SAP" ? (
-                    <>
-                        <Typography sx={{ mb: 1, fontWeight: 600 }}>System</Typography>
-                        <Box sx={{ ...boxBorderStyle }}>
-                            <Grid container spacing={2}>
-                                <Grid item xs={12}>
-                                    <Typography>Host:</Typography>
-                                    <TextField fullWidth size="small" value={sapHost} onChange={(e) => setSapHost(e.target.value)} />
-                                </Grid>
-                                <Grid item xs={12}>
-                                    <Typography>Instance:</Typography>
-                                    <TextField fullWidth size="small" value={sapInstance} onChange={(e) => setSapInstance(e.target.value)} />
-                                </Grid>
-                                <Grid item xs={6}>
-                                    <Typography>Sysnr:</Typography>
-                                    <TextField fullWidth size="small" value={sapSysnr} onChange={(e) => setSapSysnr(e.target.value)} />
-                                </Grid>
-                                <Grid item xs={6}>
-                                    <Typography>Language:</Typography>
-                                    <TextField
-                                        select
-                                        fullWidth
-                                        size="small"
-                                        value={sapLanguage}
-                                        onChange={(e) => setSapLanguage(e.target.value)}
-                                    >
-                                        <MenuItem value="EN">English</MenuItem>
-                                        <MenuItem value="TR">Turkish</MenuItem>
-                                    </TextField>
-                                </Grid>
-                            </Grid>
-                        </Box>
-                        <Typography sx={{ mb: 1, fontWeight: 600 }}>Authentication</Typography>
-                        <Box sx={{ ...boxBorderStyle }}>
-                            <Grid container spacing={2}>
-                                <Grid item xs={6}>
-                                    <Typography>User:</Typography>
-                                    <TextField fullWidth size="small" value={sapUser} onChange={(e) => setSapUser(e.target.value)} />
-                                </Grid>
-                                <Grid item xs={6}>
-                                    <Typography>Password:</Typography>
-                                    <TextField type="password" fullWidth size="small" value={sapPassword} onChange={(e) => setSapPassword(e.target.value)} />
-                                </Grid>
-                            </Grid>
-                        </Box>
-                    </>
-                ) : type === "HANA" ? (
-                    <>
-                        <Typography sx={{ mb: 1, fontWeight: 600 }}>System</Typography>
-                        <Box sx={{ ...boxBorderStyle }}>
-                            <Grid container spacing={2}>
-                                <Grid item xs={12}>
-                                    <Typography>Host:</Typography>
-                                    <TextField fullWidth size="small" value={hanaHost} onChange={(e) => setHanaHost(e.target.value)} />
-                                </Grid>
-                                <Grid item xs={12}>
-                                    <Typography>Port:</Typography>
-                                    <TextField fullWidth size="small" value={hanaPort} onChange={(e) => setHanaPort(e.target.value)} />
-                                </Grid>
-                                <Grid item xs={12}>
-                                    <Typography>Schema (optional):</Typography>
-                                    <TextField fullWidth size="small" value={hanaSchema} onChange={(e) => setHanaSchema(e.target.value)} />
-                                </Grid>
-                            </Grid>
-                        </Box>
-                        <Typography sx={{ mb: 1, fontWeight: 600 }}>Authentication</Typography>
-                        <Box sx={{ ...boxBorderStyle }}>
-                            <Grid container spacing={2}>
-                                <Grid item xs={6}>
-                                    <Typography>Username:</Typography>
-                                    <TextField fullWidth size="small" value={hanaUsername} onChange={(e) => setHanaUsername(e.target.value)} />
-                                </Grid>
-                                <Grid item xs={6}>
-                                    <Typography>Password:</Typography>
-                                    <TextField type="password" fullWidth size="small" value={hanaPassword} onChange={(e) => setHanaPassword(e.target.value)} />
-                                </Grid>
-                            </Grid>
-                        </Box>
-                    </>
-                ) : (
-                    // MSSQL
-                    <>
-                        <Typography sx={{ mb: 1, fontWeight: 600 }}>System</Typography>
-                        <Box sx={{ ...boxBorderStyle }}>
-                            <Grid container spacing={2}>
-                                <Grid item xs={12}>
-                                    <Typography>Host:</Typography>
-                                    <TextField fullWidth size="small" value={mssqlHost} onChange={(e) => setMssqlHost(e.target.value)} />
-                                </Grid>
-                                <Grid item xs={12}>
-                                    <Typography>IP:</Typography>
-                                    <TextField fullWidth size="small" value={mssqlIp} onChange={(e) => setMssqlIp(e.target.value)} />
-                                </Grid>
-                                <Grid item xs={6}>
-                                    <Typography>Port:</Typography>
-                                    <TextField fullWidth size="small" value={mssqlPort} onChange={(e) => setMssqlPort(e.target.value)} />
-                                </Grid>
-                                <Grid item xs={6}>
-                                    <Typography>Database:</Typography>
-                                    <TextField fullWidth size="small" value={mssqlDatabase} onChange={(e) => setMssqlDatabase(e.target.value)} />
-                                </Grid>
-                            </Grid>
-                        </Box>
-                        <Typography sx={{ mb: 1, fontWeight: 600 }}>Authentication</Typography>
-                        <Box sx={{ ...boxBorderStyle }}>
-                            <Grid container spacing={2}>
-                                <Grid item xs={6}>
-                                    <Typography>Username:</Typography>
-                                    <TextField fullWidth size="small" value={mssqlUsername} onChange={(e) => setMssqlUsername(e.target.value)} />
-                                </Grid>
-                                <Grid item xs={6}>
-                                    <Typography>Password:</Typography>
-                                    <TextField type="password" fullWidth size="small" value={mssqlPassword} onChange={(e) => setMssqlPassword(e.target.value)} />
-                                </Grid>
-                            </Grid>
-                        </Box>
-                    </>
-                )}
-
+                 {type === "SAP" ? (
+                                    <>
+                                        <Typography sx={{ mb: 1, fontWeight: 600 }}>System</Typography>
+                                        <Box sx={{ ...boxBorderStyle }}>
+                                            <Grid container spacing={2}>
+                                                <Grid item xs={12}>
+                                                    <Typography>Host:</Typography>
+                                                    <TextField fullWidth size="small" value={sapHost} disabled={fromDetails} onChange={(e) => setSapHost(e.target.value)} />
+                                                </Grid>
+                                                <Grid item xs={12}>
+                                                    <Typography>Instance:</Typography>
+                                                    <TextField fullWidth size="small" value={sapInstance} disabled={fromDetails} onChange={(e) => setSapInstance(e.target.value)} />
+                                                </Grid>
+                                                <Grid item xs={6}>
+                                                    <Typography>Sysnr:</Typography>
+                                                    <TextField fullWidth size="small" value={sapSysnr} disabled={fromDetails} onChange={(e) => setSapSysnr(e.target.value)} />
+                                                </Grid>
+                                                <Grid item xs={6}>
+                                                    <Typography>Language:</Typography>
+                                                    <TextField
+                                                        select                 // TextField’i combobox gibi yapar
+                                                        fullWidth
+                                                        size="small"
+                                                        disabled={fromDetails}
+                                                        value={sapLanguage}    // seçili değer state’den gelir
+                                                        onChange={(e) => setSapLanguage(e.target.value)} // seçilen değeri state’e yaz
+                                                    >
+                                                        <MenuItem value="EN">English</MenuItem>
+                                                        <MenuItem value="TR">Turkish</MenuItem>
+                                                    </TextField>
+                                                </Grid>
+                                            </Grid>
+                                        </Box>
+                                        <Typography sx={{ mb: 1, fontWeight: 600 }}>Authentication</Typography>
+                                        <Box sx={{ ...boxBorderStyle }}>
+                                            <Grid container spacing={2}>
+                                                <Grid item xs={6}>
+                                                    <Typography>User:</Typography>
+                                                    <TextField fullWidth size="small" value={sapUser} disabled={fromDetails} onChange={(e) => setSapUser(e.target.value)} />
+                                                </Grid>
+                                                <Grid item xs={6}>
+                                                    <Typography>Password:</Typography>
+                                                    <TextField type="password" fullWidth size="small" value={sapPassword} disabled={fromDetails} onChange={(e) => setSapPassword(e.target.value)} />
+                                                </Grid>
+                                            </Grid>
+                                        </Box>
+                                    </>
+                                ) : type === "HANA" ? (
+                                    <>
+                                        <Typography sx={{ mb: 1, fontWeight: 600 }}>System</Typography>
+                                        <Box sx={{ ...boxBorderStyle }}>
+                                            <Grid container spacing={2}>
+                                                <Grid item xs={12}>
+                                                    <Typography>Host:</Typography>
+                                                    <TextField fullWidth size="small" disabled={fromDetails} value={hanaHost} onChange={(e) => setHanaHost(e.target.value)} />
+                                                </Grid>
+                                                <Grid item xs={12}>
+                                                    <Typography>Port:</Typography>
+                                                    <TextField fullWidth size="small" value={hanaPort} disabled={fromDetails} onChange={(e) => setHanaPort(e.target.value)} />
+                                                </Grid>
+                                            </Grid>
+                                        </Box>
+                                        <Typography sx={{ mb: 1, fontWeight: 600 }}>Authentication</Typography>
+                                        <Box sx={{ ...boxBorderStyle }}>
+                                            <Grid container spacing={2}>
+                                                <Grid item xs={6}>
+                                                    <Typography>Username:</Typography>
+                                                    <TextField fullWidth size="small" value={hanaUsername} disabled={fromDetails} onChange={(e) => setHanaUsername(e.target.value)} />
+                                                </Grid>
+                                                <Grid item xs={6}>
+                                                    <Typography>Password:</Typography>
+                                                    <TextField type="password" fullWidth size="small" value={hanaPassword} disabled={fromDetails} onChange={(e) => setHanaPassword(e.target.value)} />
+                                                </Grid>
+                                            </Grid>
+                                        </Box>
+                                    </>
+                                ) : (
+                                    // MSSQL
+                                    <>
+                                        <Typography sx={{ mb: 1, fontWeight: 600 }}>System</Typography>
+                                        <Box sx={{ ...boxBorderStyle }}>
+                                            <Grid container spacing={2}>
+                                                <Grid item xs={12}>
+                                                    <Typography>Host:</Typography>
+                                                    <TextField fullWidth size="small" value={mssqlHost} disabled={fromDetails} onChange={(e) => setMssqlHost(e.target.value)} />
+                                                </Grid>
+                                                <Grid item xs={12}>
+                                                    <Typography>IP:</Typography>
+                                                    <TextField fullWidth size="small" value={mssqlIp} disabled={fromDetails} onChange={(e) => setMssqlIp(e.target.value)} />
+                                                </Grid>
+                                                <Grid item xs={6}>
+                                                    <Typography>Port:</Typography>
+                                                    <TextField fullWidth size="small" value={mssqlPort} disabled={fromDetails} onChange={(e) => setMssqlPort(e.target.value)} />
+                                                </Grid>
+                                                <Grid item xs={6}>
+                                                    <Typography>Database:</Typography>
+                                                    <TextField fullWidth size="small" value={mssqlDatabase} disabled={fromDetails} onChange={(e) => setMssqlDatabase(e.target.value)} />
+                                                </Grid>
+                                            </Grid>
+                                        </Box>
+                
+                                        <Typography sx={{ mb: 1, fontWeight: 600 }}>Authentication</Typography>
+                                        <Box sx={{ ...boxBorderStyle }}>
+                                            <Grid container spacing={2}>
+                                                <Grid item xs={6}>
+                                                    <Typography>Username:</Typography>
+                                                    <TextField fullWidth size="small" value={mssqlUsername} disabled={fromDetails} onChange={(e) => setMssqlUsername(e.target.value)} />
+                                                </Grid>
+                                                <Grid item xs={6}>
+                                                    <Typography>Password:</Typography>
+                                                    <TextField type="password" fullWidth size="small" value={mssqlPassword} disabled={fromDetails} onChange={(e) => setMssqlPassword(e.target.value)} />
+                                                </Grid>
+                                            </Grid>
+                                        </Box>
+                                    </>
+                                )}
+                
                 {/* Test Sonucu */}
                 <Box sx={{ mt: 2 }}>
                     {testing ? (
